@@ -24,11 +24,16 @@ if (!function_exists('csrf_token')) {
             session_start();
         }
 
-        if (empty($_SESSION['csrf_token'])) {
-            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        if (empty($_SESSION['_csrf_token']) && empty($_SESSION['csrf_token'])) {
+            $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+            $_SESSION['csrf_token'] = $_SESSION['_csrf_token'];
+        } elseif (empty($_SESSION['_csrf_token'])) {
+            $_SESSION['_csrf_token'] = $_SESSION['csrf_token'];
+        } elseif (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = $_SESSION['_csrf_token'];
         }
 
-        return $_SESSION['csrf_token'];
+        return $_SESSION['_csrf_token'];
     }
 }
 
