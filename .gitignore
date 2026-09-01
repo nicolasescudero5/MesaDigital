@@ -1,0 +1,28 @@
+# Dependencias
+/vendor/
+/node_modules/
+composer.phar
+
+# Variables de entorno locales
+.env
+.env.backup
+.env.production
+
+# Almacenamiento local de adjuntos y logs
+/storage/documentos/*
+!/storage/documentos/.gitkeep
+/storage/logs/*
+!/storage/logs/.gitkeep
+
+# IDE y Sistema Operativo
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Temporary & Tests
+/coverage/
+.phpunit.result.cache
+.phpunit.cache/
+/tmp/
