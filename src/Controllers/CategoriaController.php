@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Auth\AuthProviderInterface;
 use App\Models\Categoria;
 use App\Repositories\CategoriaRepository;
+use App\Repositories\SedeRepository;
 use App\Repositories\UsuarioRepository;
 use App\Support\View;
 
@@ -16,6 +17,7 @@ class CategoriaController
         private AuthProviderInterface $authProvider,
         private CategoriaRepository $categoriaRepository,
         private UsuarioRepository $usuarioRepository,
+        private SedeRepository $sedeRepository,
         private View $view
     ) {}
 
@@ -23,6 +25,7 @@ class CategoriaController
     {
         $user = $this->authProvider->currentUser();
         $categorias = $this->categoriaRepository->findAll(false, true);
+        $sedes = $this->sedeRepository->findAll(true);
         $usuariosResponsables = array_filter(
             $this->usuarioRepository->findAll(true),
             fn($u) => $u->isResponsable() || $u->isAdministrador()
@@ -31,6 +34,7 @@ class CategoriaController
         echo $this->view->render('categorias/index', [
             'user' => $user,
             'categorias' => $categorias,
+            'sedes' => $sedes,
             'usuariosResponsables' => $usuariosResponsables,
         ], 'app');
     }
@@ -134,6 +138,7 @@ class CategoriaController
         $catId = (int)($vars['id'] ?? 0);
         $email = trim((string)($_POST['email'] ?? ''));
         $usuarioId = !empty($_POST['usuario_id']) ? (int)$_POST['usuario_id'] : null;
+        $sedeId = !empty($_POST['sede_id']) ? (int)$_POST['sede_id'] : null;
 
         if (empty($email)) {
             // Si eligió un usuario de la lista desplegable, tomar su email
@@ -152,7 +157,7 @@ class CategoriaController
         }
 
         try {
-            $this->categoriaRepository->addResponsable($catId, $email, $usuarioId, (int)$user->id);
+            $this->categoriaRepository->addResponsable($catId, $email, $usuarioId, $sedeId, (int)$user->id);
             flash('success', "Responsable {$email} asignado a la categoría.");
         } catch (\Throwable $e) {
             flash('error', 'Error al asignar responsable: ' . $e->getMessage());
@@ -165,11 +170,17 @@ class CategoriaController
     public function removeResponsable(array $vars): void
     {
         $catId = (int)($vars['id'] ?? 0);
+        $responsableId = !empty($_POST['responsable_id']) ? (int)$_POST['responsable_id'] : 0;
         $email = trim((string)($_POST['email'] ?? ''));
+        $sedeId = !empty($_POST['sede_id']) ? (int)$_POST['sede_id'] : null;
 
         try {
-            $this->categoriaRepository->removeResponsable($catId, $email);
-            flash('success', "Responsable {$email} removido de la categoría.");
+            if ($responsableId > 0) {
+                $this->categoriaRepository->removeResponsableById($responsableId);
+            } else {
+                $this->categoriaRepository->removeResponsable($catId, $email, $sedeId);
+            }
+            flash('success', "Responsable removido de la categoría.");
         } catch (\Throwable $e) {
             flash('error', 'Error al remover responsable: ' . $e->getMessage());
         }

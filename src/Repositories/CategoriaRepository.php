@@ -72,13 +72,15 @@ class CategoriaRepository
 
     public function getResponsablesByCategoriaId(int $categoriaId, bool $onlyActive = true): array
     {
-        $sql = "SELECT cr.*, u.nombre AS usuario_nombre, u.rol AS usuario_rol 
+        $sql = "SELECT cr.*, u.nombre AS usuario_nombre, u.rol AS usuario_rol, s.nombre AS sede_nombre 
                 FROM categoria_responsables cr
                 LEFT JOIN usuarios u ON cr.usuario_id = u.id
+                LEFT JOIN sedes s ON cr.sede_id = s.id
                 WHERE cr.categoria_id = :categoria_id";
         if ($onlyActive) {
             $sql .= " AND cr.activo = 1";
         }
+        $sql .= " ORDER BY s.nombre ASC, cr.email ASC";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute(['categoria_id' => $categoriaId]);
@@ -87,15 +89,35 @@ class CategoriaRepository
         return array_map(fn($row) => CategoriaResponsable::fromArray($row), $rows);
     }
 
-    public function tieneResponsablesActivos(int $categoriaId): bool
+    public function tieneResponsablesActivos(int $categoriaId, ?int $sedeId = null): bool
     {
-        $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM categoria_responsables WHERE categoria_id = :id AND activo = 1");
-        $stmt->execute(['id' => $categoriaId]);
+        if ($sedeId !== null && $sedeId > 0) {
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM categoria_responsables WHERE categoria_id = :id AND activo = 1 AND (sede_id = :sede_id OR sede_id IS NULL)");
+            $stmt->execute(['id' => $categoriaId, 'sede_id' => $sedeId]);
+        } else {
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM categoria_responsables WHERE categoria_id = :id AND activo = 1");
+            $stmt->execute(['id' => $categoriaId]);
+        }
         return ((int)$stmt->fetchColumn()) > 0;
     }
 
-    public function getEmailsResponsablesActivos(int $categoriaId): array
+    public function getEmailsResponsablesActivos(int $categoriaId, ?int $sedeId = null): array
     {
+        if ($sedeId !== null && $sedeId > 0) {
+            // Primero buscar si existen responsables específicos para esta sede
+            $stmt = $this->pdo->prepare("SELECT email FROM categoria_responsables WHERE categoria_id = :id AND sede_id = :sede_id AND activo = 1");
+            $stmt->execute(['id' => $categoriaId, 'sede_id' => $sedeId]);
+            $sedeEmails = $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+            // También obtener responsables globales (sede_id IS NULL)
+            $stmtGlobal = $this->pdo->prepare("SELECT email FROM categoria_responsables WHERE categoria_id = :id AND sede_id IS NULL AND activo = 1");
+            $stmtGlobal->execute(['id' => $categoriaId]);
+            $globalEmails = $stmtGlobal->fetchAll(PDO::FETCH_COLUMN) ?: [];
+
+            $all = array_unique(array_merge($sedeEmails, $globalEmails));
+            return array_values($all);
+        }
+
         $stmt = $this->pdo->prepare("SELECT email FROM categoria_responsables WHERE categoria_id = :id AND activo = 1");
         $stmt->execute(['id' => $categoriaId]);
         return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
@@ -111,10 +133,12 @@ class CategoriaRepository
 
     private function getAllActiveResponsablesGroupedByCategoria(): array
     {
-        $sql = "SELECT cr.*, u.nombre AS usuario_nombre, u.rol AS usuario_rol 
+        $sql = "SELECT cr.*, u.nombre AS usuario_nombre, u.rol AS usuario_rol, s.nombre AS sede_nombre 
                 FROM categoria_responsables cr
                 LEFT JOIN usuarios u ON cr.usuario_id = u.id
-                WHERE cr.activo = 1";
+                LEFT JOIN sedes s ON cr.sede_id = s.id
+                WHERE cr.activo = 1
+                ORDER BY s.nombre ASC, cr.email ASC";
 
         $stmt = $this->pdo->query($sql);
         $rows = $stmt->fetchAll();
@@ -175,11 +199,19 @@ class CategoriaRepository
         ]);
     }
 
-    public function addResponsable(int $categoriaId, string $email, ?int $usuarioId, int $creadoPor): bool
+    public function addResponsable(int $categoriaId, string $email, ?int $usuarioId, ?int $sedeId, int $creadoPor): bool
     {
-        // Usar lógica portable para MySQL y SQLite
-        $checkStmt = $this->pdo->prepare("SELECT id FROM categoria_responsables WHERE categoria_id = :cat_id AND LOWER(email) = LOWER(:email)");
-        $checkStmt->execute(['cat_id' => $categoriaId, 'email' => trim($email)]);
+        // Verificar si ya existe registro idéntico (misma categoría, mismo email, misma sede)
+        $sqlCheck = "SELECT id FROM categoria_responsables 
+                     WHERE categoria_id = :cat_id AND LOWER(email) = LOWER(:email) " .
+                     ($sedeId !== null ? "AND sede_id = :sede_id" : "AND sede_id IS NULL");
+        $paramsCheck = ['cat_id' => $categoriaId, 'email' => trim($email)];
+        if ($sedeId !== null) {
+            $paramsCheck['sede_id'] = $sedeId;
+        }
+
+        $checkStmt = $this->pdo->prepare($sqlCheck);
+        $checkStmt->execute($paramsCheck);
         $existingId = $checkStmt->fetchColumn();
 
         if ($existingId) {
@@ -187,25 +219,41 @@ class CategoriaRepository
             return $stmt->execute(['usuario_id' => $usuarioId, 'modificado_el' => date('Y-m-d H:i:s'), 'id' => $existingId]);
         }
 
-        $stmt = $this->pdo->prepare("INSERT INTO categoria_responsables (categoria_id, email, usuario_id, activo, creado_por) VALUES (:categoria_id, :email, :usuario_id, 1, :creado_por)");
+        $stmt = $this->pdo->prepare("INSERT INTO categoria_responsables (categoria_id, sede_id, email, usuario_id, activo, creado_por) VALUES (:categoria_id, :sede_id, :email, :usuario_id, 1, :creado_por)");
         return $stmt->execute([
             'categoria_id' => $categoriaId,
+            'sede_id' => $sedeId,
             'email' => strtolower(trim($email)),
             'usuario_id' => $usuarioId,
             'creado_por' => $creadoPor
         ]);
     }
 
-    public function removeResponsable(int $categoriaId, string $email): bool
+    public function removeResponsableById(int $id): bool
     {
-        $stmt = $this->pdo->prepare(
-            "UPDATE categoria_responsables SET activo = 0, modificado_el = :modificado_el 
-             WHERE categoria_id = :categoria_id AND LOWER(email) = LOWER(:email)"
-        );
+        $stmt = $this->pdo->prepare("UPDATE categoria_responsables SET activo = 0, modificado_el = :modificado_el WHERE id = :id");
         return $stmt->execute([
+            'id' => $id,
+            'modificado_el' => date('Y-m-d H:i:s')
+        ]);
+    }
+
+    public function removeResponsable(int $categoriaId, string $email, ?int $sedeId = null): bool
+    {
+        $sql = "UPDATE categoria_responsables SET activo = 0, modificado_el = :modificado_el 
+                WHERE categoria_id = :categoria_id AND LOWER(email) = LOWER(:email)";
+        $params = [
             'categoria_id' => $categoriaId,
             'email' => trim($email),
             'modificado_el' => date('Y-m-d H:i:s')
-        ]);
+        ];
+
+        if ($sedeId !== null) {
+            $sql .= " AND sede_id = :sede_id";
+            $params['sede_id'] = $sedeId;
+        }
+
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute($params);
     }
 }

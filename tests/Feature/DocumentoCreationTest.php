@@ -116,4 +116,67 @@ class DocumentoCreationTest extends TestCase
         // Archivos vacíos
         $this->documentoService->crear($data, [], $user);
     }
+
+    /**
+     * Valida que un documento en Sede Benavídez notifique al responsable específico de Benavídez
+     * y en Sede Escobar notifique al responsable de Escobar
+     */
+    public function test_responsables_especificos_por_sede_son_derivados_correctamente(): void
+    {
+        $admin = $this->usuarioRepo->findById(1);
+
+        // Crear una nueva categoría 'Oficios Especiales'
+        $catId = $this->categoriaRepo->create(new \App\Models\Categoria(
+            nombre: 'Oficios Especiales',
+            descripcion: 'Oficios con responsable por sede',
+            orden: 10,
+            activo: true,
+            creado_por: 1
+        ));
+
+        // Asignar responsable específico para Sede 1 (Benavídez)
+        $this->categoriaRepo->addResponsable($catId, 'abogado.benavidez@reditinere.com', null, 1, 1);
+
+        // Asignar responsable específico para Sede 2 (Escobar)
+        $this->categoriaRepo->addResponsable($catId, 'abogado.escobar@reditinere.com', null, 2, 1);
+
+        $files = [
+            ['name' => 'doc.pdf', 'type' => 'application/pdf', 'tmp_name' => '/tmp/doc.pdf', 'error' => UPLOAD_ERR_OK, 'size' => 1024]
+        ];
+
+        // 1. Crear documento en Sede 1 (Benavidez)
+        $doc1 = $this->documentoService->crear([
+            'sede_id' => 1,
+            'categoria_id' => $catId,
+            'tipo_documento_id' => 1,
+            'remitente' => 'Juzgado Benavidez',
+            'asunto' => 'Oficio Benavidez',
+            'descripcion' => 'Notificacion oficial',
+            'fecha_recepcion' => date('Y-m-d')
+        ], $files, $admin);
+
+        // 2. Crear documento en Sede 2 (Escobar)
+        $doc2 = $this->documentoService->crear([
+            'sede_id' => 2,
+            'categoria_id' => $catId,
+            'tipo_documento_id' => 1,
+            'remitente' => 'Juzgado Escobar',
+            'asunto' => 'Oficio Escobar',
+            'descripcion' => 'Notificacion oficial',
+            'fecha_recepcion' => date('Y-m-d')
+        ], $files, $admin);
+
+        // Verificar notificaciones generadas
+        $notifsDoc1 = $this->notificacionRepo->findByDocumentoId((int)$doc1->id);
+        $notifsDoc2 = $this->notificacionRepo->findByDocumentoId((int)$doc2->id);
+
+        $emailsDoc1 = array_map(fn($n) => $n->destinatario_email, $notifsDoc1);
+        $emailsDoc2 = array_map(fn($n) => $n->destinatario_email, $notifsDoc2);
+
+        $this->assertContains('abogado.benavidez@reditinere.com', $emailsDoc1);
+        $this->assertNotContains('abogado.escobar@reditinere.com', $emailsDoc1);
+
+        $this->assertContains('abogado.escobar@reditinere.com', $emailsDoc2);
+        $this->assertNotContains('abogado.benavidez@reditinere.com', $emailsDoc2);
+    }
 }

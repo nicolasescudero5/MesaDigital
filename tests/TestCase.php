@@ -127,14 +127,14 @@ abstract class TestCase extends BaseTestCase
             CREATE TABLE categoria_responsables (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 categoria_id INTEGER NOT NULL,
+                sede_id INTEGER NULL,
                 email TEXT NOT NULL,
                 usuario_id INTEGER NULL,
                 activo INTEGER NOT NULL DEFAULT 1,
                 creado_el TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 creado_por INTEGER NULL,
                 modificado_el TEXT NULL,
-                modificado_por INTEGER NULL,
-                UNIQUE(categoria_id, email)
+                modificado_por INTEGER NULL
             );
 
             CREATE TABLE documentos (

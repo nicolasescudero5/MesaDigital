@@ -12,7 +12,7 @@ class RbacMiddleware
 
     public function handle(callable $next, array $allowedRoles = []): mixed
     {
-        $user = $this->authProvider->user();
+        $user = $this->authProvider->currentUser();
 
         if (!$user) {
             header('Location: /login');

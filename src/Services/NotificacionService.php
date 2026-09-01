@@ -42,7 +42,7 @@ class NotificacionService
             return;
         }
 
-        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id);
+        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id, (int)$documento->sede_id);
 
         if (empty($emails)) {
             // Caso especial (§ 4.6 y § 8.1): Alerta al Administrador si la categoría no tiene responsables
@@ -75,7 +75,7 @@ class NotificacionService
      */
     public function notificarReclasificacion(Documento $documento, string $categoriaAnteriorNombre, string $motivo): void
     {
-        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id);
+        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id, (int)$documento->sede_id);
 
         foreach ($emails as $email) {
             $this->notificacionRepository->create(new NotificacionEnviada(
@@ -106,7 +106,7 @@ class NotificacionService
      */
     public function notificarRecordatorio48h(Documento $documento): void
     {
-        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id);
+        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id, (int)$documento->sede_id);
         foreach ($emails as $email) {
             $this->notificacionRepository->create(new NotificacionEnviada(
                 documento_id: (int)$documento->id,
@@ -122,7 +122,7 @@ class NotificacionService
     public function notificarAlertaVencimiento(Documento $documento, int $dias): void
     {
         $evento = $dias === 1 ? 'Alerta_vencimiento_1d' : 'Alerta_vencimiento_3d';
-        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id);
+        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id, (int)$documento->sede_id);
 
         foreach ($emails as $email) {
             $this->notificacionRepository->create(new NotificacionEnviada(

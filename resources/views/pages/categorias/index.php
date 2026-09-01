@@ -11,6 +11,8 @@ foreach ($categorias as $cat) {
             'id' => $r->id,
             'email' => $r->email,
             'usuario_nombre' => $r->usuario_nombre,
+            'sede_id' => $r->sede_id,
+            'sede_nombre' => $r->sede_nombre,
         ];
     }
     $categoriasMap[$cat->id] = [
@@ -132,6 +134,11 @@ foreach ($categorias as $cat) {
                                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-ink-100 dark:bg-ink-800 text-[11px] font-medium text-ink-700 dark:text-ink-200 border border-ink-200 dark:border-ink-700">
                                                 <?= icon('mail', 'w-3 h-3 text-ink-400') ?>
                                                 <span><?= e($resp->email) ?></span>
+                                                <?php if ($resp->sede_nombre): ?>
+                                                    <span class="px-1 py-0.2 text-[9px] font-bold rounded bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300"><?= e($resp->sede_nombre) ?></span>
+                                                <?php else: ?>
+                                                    <span class="px-1 py-0.2 text-[9px] font-semibold rounded bg-ink-200/60 text-ink-600 dark:bg-ink-700 dark:text-ink-300">Global</span>
+                                                <?php endif; ?>
                                             </span>
                                         <?php endforeach; ?>
                                         <button type="button" @click="openManage(<?= $cat->id ?>)" class="text-[11px] font-bold text-brand-600 hover:text-brand-700 ml-1">
@@ -240,16 +247,21 @@ foreach ($categorias as $cat) {
                         </div>
                     </template>
 
-                    <template x-for="resp in (selectedCat ? selectedCat.responsables : [])" :key="resp.email">
+                    <template x-for="resp in (selectedCat ? selectedCat.responsables : [])" :key="resp.id || resp.email">
                         <div class="flex items-center justify-between p-2.5 rounded-lg bg-ink-50 dark:bg-ink-800/40 border border-ink-200 dark:border-ink-700 text-xs">
                             <div class="flex items-center gap-2 min-w-0">
                                 <span class="text-ink-400"><?= icon('mail', 'w-4 h-4 text-ink-400') ?></span>
                                 <span class="font-bold text-ink-900 dark:text-white truncate" x-text="resp.email"></span>
                                 <span class="text-ink-400 text-[11px]" x-show="resp.usuario_nombre" x-text="'(' + resp.usuario_nombre + ')'"></span>
+                                <span class="px-1.5 py-0.5 text-[10px] font-bold rounded"
+                                      :class="resp.sede_nombre ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300' : 'bg-ink-200/60 text-ink-600 dark:bg-ink-700 dark:text-ink-300'"
+                                      x-text="resp.sede_nombre ? resp.sede_nombre : 'Todas las Sedes'"></span>
                             </div>
                             <form :action="'/categorias/' + selectedCat.id + '/responsables/eliminar'" method="POST" onsubmit="return confirm('¿Remover este responsable?')">
                                 <?= csrf_field() ?>
+                                <input type="hidden" name="responsable_id" :value="resp.id">
                                 <input type="hidden" name="email" :value="resp.email">
+                                <input type="hidden" name="sede_id" :value="resp.sede_id || ''">
                                 <button type="submit" class="text-xs text-danger-600 hover:text-danger-700 font-semibold p-1 rounded hover:bg-danger-50 transition-colors" title="Remover">
                                     <?= icon('trash-2', 'w-3.5 h-3.5 text-danger-500') ?>
                                 </button>
@@ -266,19 +278,28 @@ foreach ($categorias as $cat) {
                         <span>Asignar Nuevo Responsable</span>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="form-label text-[10px]">Usuario del Sistema</label>
                             <select name="usuario_id" class="form-select text-xs">
-                                <option value="">O ingresar email abajo...</option>
+                                <option value="">O ingresar email...</option>
                                 <?php foreach ($usuariosResponsables as $u): ?>
                                     <option value="<?= $u->id ?>"><?= e($u->nombre) ?> (<?= e($u->email) ?>)</option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
                         <div>
-                            <label class="form-label text-[10px]">O Correo Directo / Externo</label>
+                            <label class="form-label text-[10px]">O Correo Directo</label>
                             <input type="email" name="email" class="form-input text-xs" placeholder="ejemplo@abogados.com">
+                        </div>
+                        <div>
+                            <label class="form-label text-[10px]">Sede de Alcance</label>
+                            <select name="sede_id" class="form-select text-xs font-medium">
+                                <option value="">Todas las Sedes (Global)</option>
+                                <?php foreach ($sedes as $s): ?>
+                                    <option value="<?= $s->id ?>"><?= e($s->nombre) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
 

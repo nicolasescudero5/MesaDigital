@@ -23,6 +23,8 @@ foreach ($categorias as $c) {
             'id' => $r->id,
             'email' => $r->email,
             'usuario_nombre' => $r->usuario_nombre,
+            'sede_id' => $r->sede_id,
+            'sede_nombre' => $r->sede_nombre,
         ];
     }
     $categoriasMap[$c->id] = [
@@ -35,7 +37,7 @@ foreach ($categorias as $c) {
 
 <?= $view->partial('page-header', [
     'title' => 'Registrar Nuevo Documento',
-    'subtitle' => 'Carga de correspondencia con derivación automática según el tipo de documento',
+    'subtitle' => 'Carga de correspondencia con derivación automática según la sede y tipo de documento',
     'breadcrumbs' => [
         ['label' => 'Bandeja', 'url' => '/documentos'],
         ['label' => 'Nuevo Registro']
@@ -45,6 +47,7 @@ foreach ($categorias as $c) {
 <div class="max-w-2xl mx-auto" x-data='{
     filesCount: 0,
     fileNames: [],
+    sedeId: "<?= old('sede_id', $user->sede_id ?? '') ?>",
     tipoId: "<?= old('tipo_documento_id', '') ?>",
     categoriaId: "<?= old('categoria_id', '') ?>",
     responsableEmail: "<?= old('responsable_email', '') ?>",
@@ -52,16 +55,16 @@ foreach ($categorias as $c) {
     categorias: <?= json_encode($categoriasMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
     init() {
         if (this.tipoId) {
-            this.onTipoChange();
+            this.recalculateDerivation();
         }
     },
-    onTipoChange() {
+    recalculateDerivation() {
         const t = this.tipos[this.tipoId];
         if (t && t.categoria_id) {
             this.categoriaId = t.categoria_id;
-            const c = this.categorias[t.categoria_id];
-            if (c && c.responsables && c.responsables.length === 1) {
-                this.responsableEmail = c.responsables[0].email;
+            const resps = this.getCurrentResponsables();
+            if (resps.length === 1) {
+                this.responsableEmail = resps[0].email;
             } else {
                 this.responsableEmail = "";
             }
@@ -72,7 +75,16 @@ foreach ($categorias as $c) {
     },
     getCurrentResponsables() {
         if (!this.categoriaId || !this.categorias[this.categoriaId]) return [];
-        return this.categorias[this.categoriaId].responsables || [];
+        const all = this.categorias[this.categoriaId].responsables || [];
+        if (!this.sedeId) return all;
+        
+        // Priorizar responsables específicos de esta sede si existen
+        const sedeSpecific = all.filter(r => r.sede_id == this.sedeId);
+        if (sedeSpecific.length > 0) {
+            return sedeSpecific;
+        }
+        // Si no hay específicos, usar los globales (sede_id null)
+        return all.filter(r => !r.sede_id);
     },
     getCurrentCategoriaNombre() {
         if (!this.categoriaId || !this.categorias[this.categoriaId]) return "";
@@ -162,7 +174,7 @@ foreach ($categorias as $c) {
                         <input type="hidden" name="sede_id" value="<?= $user->sede_id ?>">
                         <input type="text" disabled class="form-input bg-ink-100 dark:bg-ink-800 font-bold text-ink-900 dark:text-white" value="<?= e($user->sede_nombre) ?>">
                     <?php else: ?>
-                        <select id="sede_id" name="sede_id" required class="form-select font-medium">
+                        <select id="sede_id" name="sede_id" x-model="sedeId" @change="recalculateDerivation" required class="form-select font-medium">
                             <option value="">Seleccionar sede...</option>
                             <?php foreach ($sedes as $s): ?>
                                 <option value="<?= $s->id ?>" <?= old('sede_id') == $s->id ? 'selected' : '' ?>>
@@ -178,7 +190,7 @@ foreach ($categorias as $c) {
                     <label for="tipo_documento_id" class="form-label">
                         Tipo de Documento <span class="text-danger-500">*</span>
                     </label>
-                    <select id="tipo_documento_id" name="tipo_documento_id" x-model="tipoId" @change="onTipoChange" required class="form-select font-bold text-ink-900 dark:text-white">
+                    <select id="tipo_documento_id" name="tipo_documento_id" x-model="tipoId" @change="recalculateDerivation" required class="form-select font-bold text-ink-900 dark:text-white">
                         <option value="">Seleccionar tipo...</option>
                         <?php foreach ($tipos as $t): ?>
                             <option value="<?= $t->id ?>">
@@ -218,6 +230,7 @@ foreach ($categorias as $c) {
                                 <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success-50 text-success-800 dark:bg-success-950/40 dark:text-success-200 border border-success-200 dark:border-success-800 text-xs font-semibold">
                                     <?= icon('check-circle', 'w-4 h-4 text-success-600') ?>
                                     <span>Responsable asignado: <strong x-text="getCurrentResponsables()[0].usuario_nombre || getCurrentResponsables()[0].email"></strong></span>
+                                    <span class="text-[10px] opacity-75 font-normal" x-show="getCurrentResponsables()[0].sede_nombre" x-text="'(' + getCurrentResponsables()[0].sede_nombre + ')'"></span>
                                     <input type="hidden" name="responsable_email" :value="getCurrentResponsables()[0].email">
                                 </div>
                             </template>
@@ -233,7 +246,7 @@ foreach ($categorias as $c) {
                                 <select name="responsable_email" x-model="responsableEmail" class="form-select text-xs font-medium">
                                     <option value="">(Notificar a todos los responsables de esta categoría)</option>
                                     <template x-for="resp in getCurrentResponsables()" :key="resp.email">
-                                        <option :value="resp.email" x-text="resp.usuario_nombre ? (resp.usuario_nombre + ' — ' + resp.email) : resp.email"></option>
+                                        <option :value="resp.email" x-text="(resp.usuario_nombre ? (resp.usuario_nombre + ' — ' + resp.email) : resp.email) + (resp.sede_nombre ? ' [' + resp.sede_nombre + ']' : '')"></option>
                                     </template>
                                 </select>
                             </div>
