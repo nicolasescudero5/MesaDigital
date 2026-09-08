@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+@set_time_limit(0);
+@ini_set('max_execution_time', '0');
+@ini_set('max_input_time', '0');
+@ini_set('memory_limit', '512M');
+
 // Soporte para servir assets estáticos directamente en el servidor embebido de PHP
 if (php_sapi_name() === 'cli-server') {
     $urlPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
@@ -20,11 +25,6 @@ if (file_exists(__DIR__ . '/../.env')) {
 }
 
 $appConfig = require __DIR__ . '/../config/app.php';
-
-// Configuración de límites y errores para entorno local
-@set_time_limit(86400);
-@ini_set('max_execution_time', '86400');
-@ini_set('max_input_time', '86400');
 if (($appConfig['env'] ?? 'local') === 'local') {
     ini_set('display_errors', '1');
     ini_set('display_startup_errors', '1');
