@@ -26,3 +26,4 @@ composer.phar
 .phpunit.result.cache
 .phpunit.cache/
 /tmp/
+/storage

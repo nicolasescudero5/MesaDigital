@@ -51,21 +51,21 @@ foreach ($documentos as $doc) {
         <div class="flex flex-wrap items-center gap-2.5">
             <!-- Botones de Exportación respetando filtros (§ 9 y Criterio N°15) -->
             <div class="inline-flex rounded-lg shadow-xs border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-0.5">
-                <a href="/reportes/documentos/excel<?= $exportParams ?>" class="btn-ghost text-xs px-2.5 py-1.5 h-auto text-ink-700 hover:text-success-700 dark:text-ink-300 font-semibold inline-flex items-center gap-1.5" title="Exportar a Excel">
+                <a href="<?= app_url('/reportes/documentos/excel' . $exportParams) ?>" class="btn-ghost text-xs px-2.5 py-1.5 h-auto text-ink-700 hover:text-success-700 dark:text-ink-300 font-semibold inline-flex items-center gap-1.5" title="Exportar a Excel">
                     <?= icon('file-spreadsheet', 'w-4 h-4 text-success-600') ?>
                     <span>Excel</span>
                 </a>
-                <a href="/reportes/documentos/csv<?= $exportParams ?>" class="btn-ghost text-xs px-2.5 py-1.5 h-auto text-ink-700 hover:text-brand-700 dark:text-ink-300 font-semibold inline-flex items-center gap-1.5" title="Exportar a CSV">
+                <a href="<?= app_url('/reportes/documentos/csv' . $exportParams) ?>" class="btn-ghost text-xs px-2.5 py-1.5 h-auto text-ink-700 hover:text-brand-700 dark:text-ink-300 font-semibold inline-flex items-center gap-1.5" title="Exportar a CSV">
                     <?= icon('file-text', 'w-4 h-4 text-brand-500') ?>
                     <span>CSV</span>
                 </a>
-                <a href="/reportes/documentos/pdf<?= $exportParams ?>" target="_blank" class="btn-ghost text-xs px-2.5 py-1.5 h-auto text-ink-700 hover:text-ink-900 dark:text-ink-300 font-semibold inline-flex items-center gap-1.5" title="Imprimir / PDF">
+                <a href="<?= app_url('/reportes/documentos/pdf' . $exportParams) ?>" target="_blank" class="btn-ghost text-xs px-2.5 py-1.5 h-auto text-ink-700 hover:text-ink-900 dark:text-ink-300 font-semibold inline-flex items-center gap-1.5" title="Imprimir / PDF">
                     <?= icon('printer', 'w-4 h-4 text-ink-500') ?>
                     <span>Imprimir</span>
                 </a>
             </div>
 
-            <a href="/documentos/nuevo" class="btn-primary inline-flex items-center gap-2 shadow-sm font-semibold text-white">
+            <a href="<?= app_url('/documentos/nuevo') ?>" class="btn-primary inline-flex items-center gap-2 shadow-sm font-semibold text-white">
                 <?= icon('plus-circle', 'w-4 h-4 text-white') ?>
                 <span>Nuevo Documento</span>
             </a>
@@ -74,7 +74,7 @@ foreach ($documentos as $doc) {
 
     <!-- Barra de Filtros y Búsqueda -->
     <div class="card p-4 mb-6">
-        <form action="/documentos" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+        <form action="<?= app_url('/documentos') ?>" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             
             <!-- Búsqueda libre -->
             <div class="lg:col-span-2">
@@ -134,7 +134,7 @@ foreach ($documentos as $doc) {
                     <?= icon('filter', 'w-4 h-4 text-ink-500') ?>
                     <span>Filtrar</span>
                 </button>
-                <a href="/documentos" class="btn-ghost p-2.5 h-auto text-ink-400 hover:text-ink-700" title="Limpiar filtros">
+                <a href="<?= app_url('/documentos') ?>" class="btn-ghost p-2.5 h-auto text-ink-400 hover:text-ink-700" title="Limpiar filtros">
                     <?= icon('rotate-ccw', 'w-4 h-4 text-ink-400') ?>
                 </a>
             </div>
@@ -188,7 +188,7 @@ foreach ($documentos as $doc) {
                                 
                                 <!-- Código -->
                                 <td class="py-3.5 px-4 font-mono font-bold text-xs text-brand-600 dark:text-brand-400">
-                                    <a href="/documentos/<?= $doc->id ?>" class="hover:underline">
+                                    <a href="<?= app_url("/documentos/{$doc->id}") ?>" class="hover:underline">
                                         <?= e($doc->codigo) ?>
                                     </a>
                                 </td>
@@ -255,7 +255,7 @@ foreach ($documentos as $doc) {
                                             class="inline-flex items-center justify-center p-1.5 rounded-lg text-ink-600 bg-ink-100 hover:bg-ink-200 hover:text-ink-900 dark:bg-ink-800 dark:text-ink-300 transition-colors shadow-xs" title="Vista rápida">
                                         <?= icon('eye', 'w-4 h-4 text-ink-600') ?>
                                     </button>
-                                    <a href="/documentos/<?= $doc->id ?>" class="btn-neutral text-xs px-2.5 py-1.5 h-auto inline-flex items-center gap-1 font-semibold text-ink-700 shadow-xs">
+                                    <a href="<?= app_url("/documentos/{$doc->id}") ?>" class="btn-neutral text-xs px-2.5 py-1.5 h-auto inline-flex items-center gap-1 font-semibold text-ink-700 shadow-xs">
                                         <span>Ficha</span>
                                         <?= icon('arrow-right', 'w-3.5 h-3.5 text-ink-500') ?>
                                     </a>
@@ -276,7 +276,7 @@ foreach ($documentos as $doc) {
             <div class="flex items-center gap-4">
                 <div class="flex items-center gap-1">
                     <?php if ($page > 1): ?>
-                        <a href="/documentos?<?= http_build_query(array_merge($filters, ['page' => $page - 1, 'limit' => $limit])) ?>" 
+                        <a href="<?= app_url('/documentos?' . http_build_query(array_merge($filters, ['page' => $page - 1, 'limit' => $limit]))) ?>" 
                            class="btn-neutral p-1.5 h-auto text-xs" title="Página anterior">
                             <?= icon('chevron-left', 'w-4 h-4 text-ink-500') ?>
                         </a>
@@ -285,7 +285,7 @@ foreach ($documentos as $doc) {
                     <span class="px-2">Página <strong class="text-ink-900 dark:text-white"><?= $page ?></strong> de <strong class="text-ink-900 dark:text-white"><?= $totalPages ?></strong></span>
 
                     <?php if ($page < $totalPages): ?>
-                        <a href="/documentos?<?= http_build_query(array_merge($filters, ['page' => $page + 1, 'limit' => $limit])) ?>" 
+                        <a href="<?= app_url('/documentos?' . http_build_query(array_merge($filters, ['page' => $page + 1, 'limit' => $limit]))) ?>" 
                            class="btn-neutral p-1.5 h-auto text-xs" title="Página siguiente">
                             <?= icon('chevron-right', 'w-4 h-4 text-ink-500') ?>
                         </a>
@@ -295,7 +295,7 @@ foreach ($documentos as $doc) {
                 <div class="flex items-center gap-1.5">
                     <span>Ver:</span>
                     <?php foreach ([25, 50, 100] as $lim): ?>
-                        <a href="/documentos?<?= http_build_query(array_merge($filters, ['page' => 1, 'limit' => $lim])) ?>" 
+                        <a href="<?= app_url('/documentos?' . http_build_query(array_merge($filters, ['page' => 1, 'limit' => $lim]))) ?>" 
                            class="px-2 py-1 rounded <?= $limit === $lim ? 'bg-brand-600 text-white font-bold' : 'hover:bg-ink-100 dark:hover:bg-ink-800' ?>">
                             <?= $lim ?>
                         </a>
@@ -370,7 +370,7 @@ foreach ($documentos as $doc) {
                 </template>
 
                 <div class="pt-6 border-t border-ink-100 dark:border-ink-800 flex justify-end gap-3">
-                    <a :href="'/documentos/' + selectedDoc.id" class="btn-primary w-full justify-center inline-flex items-center gap-2 text-white">
+                    <a :href="'<?= app_url('/documentos/') ?>' + selectedDoc.id" class="btn-primary w-full justify-center inline-flex items-center gap-2 text-white">
                         <span>Ir a la Ficha Completa</span>
                         <?= icon('arrow-right', 'w-4 h-4 text-white') ?>
                     </a>

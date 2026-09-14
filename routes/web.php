@@ -12,13 +12,18 @@ use App\Controllers\ReporteController;
 use App\Controllers\SedeController;
 use App\Controllers\TipoDocumentoController;
 use App\Controllers\UsuarioController;
+use App\Controllers\UploadSessionController;
 use App\Middleware\AuthMiddleware;
 use App\Support\Router;
 
 /** @var Router $router */
 
-// Rutas Públicas / Salud
+// Rutas Públicas / Salud & Carga Móvil con QR
 $router->get('/health', [HealthController::class, 'check']);
+$router->get('/cargar', [UploadSessionController::class, 'showUploadPage']);
+$router->post('/cargar', [UploadSessionController::class, 'handleUpload']);
+$router->post('/api/upload-session/create', [UploadSessionController::class, 'create'], [AuthMiddleware::class]);
+$router->get('/api/upload-session/status', [UploadSessionController::class, 'status']);
 
 // Autenticación
 $router->get('/login', [AuthController::class, 'showLogin']);

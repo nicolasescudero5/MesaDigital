@@ -38,7 +38,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
             <div class="flex flex-wrap items-center gap-2">
                 <!-- Acción: Tomar documento (Recibido -> En curso) -->
                 <?php if ($documento->estado === 'Recibido'): ?>
-                    <form action="/documentos/<?= $documento->id ?>/tomar" method="POST" class="inline">
+                    <form action="<?= app_url("/documentos/{$documento->id}/tomar") ?>" method="POST" class="inline">
                         <?= csrf_field() ?>
                         <button type="submit" class="btn-primary text-xs h-9 inline-flex items-center gap-1.5 shadow-xs">
                             <?= icon('play', 'w-3.5 h-3.5') ?>
@@ -213,10 +213,10 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
                             <div>
                                 <?php if ($adjunto->isImage()): ?>
                                     <div class="h-32 mb-2 rounded-lg bg-ink-100 dark:bg-ink-800 overflow-hidden flex items-center justify-center border border-ink-200 dark:border-ink-700">
-                                        <img src="/documentos/<?= $documento->id ?>/adjuntos/<?= $adjunto->id ?>/descargar" 
+                                        <img src="<?= app_url("/documentos/{$documento->id}/adjuntos/{$adjunto->id}/descargar") ?>" 
                                              alt="<?= e($adjunto->nombre_original) ?>" 
                                              class="h-full w-full object-cover cursor-pointer"
-                                             onclick="window.open('/documentos/<?= $documento->id ?>/adjuntos/<?= $adjunto->id ?>/descargar', '_blank')">
+                                             onclick="window.open('<?= app_url("/documentos/{$documento->id}/adjuntos/{$adjunto->id}/descargar") ?>', '_blank')">
                                     </div>
                                 <?php else: ?>
                                     <div class="h-32 mb-2 rounded-lg bg-ink-100 dark:bg-ink-800 flex flex-col items-center justify-center text-ink-500 border border-ink-200 dark:border-ink-700">
@@ -234,7 +234,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
                             </div>
 
                             <div class="mt-3 pt-2 border-t border-ink-100 dark:border-ink-800 flex justify-end">
-                                <a href="/documentos/<?= $documento->id ?>/adjuntos/<?= $adjunto->id ?>/descargar" target="_blank" class="btn-neutral text-xs px-2.5 py-1 h-auto inline-flex items-center gap-1 font-semibold shadow-xs">
+                                <a href="<?= app_url("/documentos/{$documento->id}/adjuntos/{$adjunto->id}/descargar") ?>" target="_blank" class="btn-neutral text-xs px-2.5 py-1 h-auto inline-flex items-center gap-1 font-semibold shadow-xs">
                                     <?= icon('download', 'w-3.5 h-3.5') ?>
                                     <span>Ver / Descargar</span>
                                 </a>
@@ -272,7 +272,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
 
                 <!-- Formulario de nuevo comentario -->
                 <?php if ($documento->activo): ?>
-                    <form action="/documentos/<?= $documento->id ?>/comentarios" method="POST" class="pt-4 border-t border-ink-100 dark:border-ink-800 space-y-3">
+                    <form action="<?= app_url("/documentos/{$documento->id}/comentarios") ?>" method="POST" class="pt-4 border-t border-ink-100 dark:border-ink-800 space-y-3">
                         <?= csrf_field() ?>
                         <div>
                             <label for="comentario" class="form-label">Agregar Comentario de Seguimiento</label>
@@ -327,7 +327,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
     <div x-show="modalReclasificar" class="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/60 p-4" style="display: none;">
         <div class="card max-w-md w-full p-6 shadow-modal" @click.away="modalReclasificar = false">
             <h3 class="text-lg font-bold text-ink-900 dark:text-white mb-4">Reclasificar Documento</h3>
-            <form action="/documentos/<?= $documento->id ?>/reclasificar" method="POST" class="space-y-4">
+            <form action="<?= app_url("/documentos/{$documento->id}/reclasificar") ?>" method="POST" class="space-y-4">
                 <?= csrf_field() ?>
                 <div>
                     <label class="form-label">Nueva Categoría Destino <span class="text-danger-500">*</span></label>
@@ -355,7 +355,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
     <div x-show="modalPlazo" class="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/60 p-4" style="display: none;">
         <div class="card max-w-md w-full p-6 shadow-modal" @click.away="modalPlazo = false">
             <h3 class="text-lg font-bold text-ink-900 dark:text-white mb-4">Modificar Plazo Legal</h3>
-            <form action="/documentos/<?= $documento->id ?>/plazo-legal" method="POST" class="space-y-4">
+            <form action="<?= app_url("/documentos/{$documento->id}/plazo-legal") ?>" method="POST" class="space-y-4">
                 <?= csrf_field() ?>
                 <div>
                     <label class="form-label">Fecha de Vencimiento / Plazo</label>
@@ -374,7 +374,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
     <div x-show="modalResolver" class="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/60 p-4" style="display: none;">
         <div class="card max-w-md w-full p-6 shadow-modal" @click.away="modalResolver = false">
             <h3 class="text-lg font-bold text-ink-900 dark:text-white mb-4">Marcar Documento como Resuelto</h3>
-            <form action="/documentos/<?= $documento->id ?>/resolver" method="POST" class="space-y-4">
+            <form action="<?= app_url("/documentos/{$documento->id}/resolver") ?>" method="POST" class="space-y-4">
                 <?= csrf_field() ?>
                 <div>
                     <label class="form-label">Constancia de Cierre / Respuesta (Mínimo 10 caracteres) <span class="text-danger-500">*</span></label>
@@ -394,7 +394,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
         <div class="card max-w-md w-full p-6 shadow-modal" @click.away="modalCerrar = false">
             <h3 class="text-lg font-bold text-ink-900 dark:text-white mb-2">Archivar Documento</h3>
             <p class="text-xs text-ink-500 mb-4">¿Confirmás el archivo definitivo de este documento? El estado pasará a <strong>Cerrado</strong>.</p>
-            <form action="/documentos/<?= $documento->id ?>/cerrar" method="POST" class="flex justify-end gap-2">
+            <form action="<?= app_url("/documentos/{$documento->id}/cerrar") ?>" method="POST" class="flex justify-end gap-2">
                 <?= csrf_field() ?>
                 <button type="button" @click="modalCerrar = false" class="btn-ghost text-xs">Cancelar</button>
                 <button type="submit" class="btn-dark text-xs">Archivar Definitivamente</button>
@@ -411,7 +411,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
             </div>
             <p class="text-xs text-ink-600 dark:text-ink-300 mb-4">Esta acción anulará lógicamente el documento del sistema. Por seguridad, escribí la palabra <strong class="font-mono text-danger-600">ANULAR</strong> para habilitar el botón.</p>
             
-            <form action="/documentos/<?= $documento->id ?>/anular" method="POST" class="space-y-4">
+            <form action="<?= app_url("/documentos/{$documento->id}/anular") ?>" method="POST" class="space-y-4">
                 <?= csrf_field() ?>
                 <div>
                     <label class="form-label">Motivo de Anulación <span class="text-danger-500">*</span></label>
@@ -435,7 +435,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
     <div x-show="modalAdjunto" class="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/60 p-4" style="display: none;">
         <div class="card max-w-md w-full p-6 shadow-modal" @click.away="modalAdjunto = false">
             <h3 class="text-lg font-bold text-ink-900 dark:text-white mb-4">Agregar Adjunto Adicional</h3>
-            <form action="/documentos/<?= $documento->id ?>/adjuntos" method="POST" enctype="multipart/form-data" class="space-y-4">
+            <form action="<?= app_url("/documentos/{$documento->id}/adjuntos") ?>" method="POST" enctype="multipart/form-data" class="space-y-4">
                 <?= csrf_field() ?>
                 <div>
                     <label class="form-label">Archivo (PDF, JPG, PNG, WebP) ≤ 10 MB <span class="text-danger-500">*</span></label>

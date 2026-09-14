@@ -7,7 +7,7 @@ $view = $container->get(\App\Support\View::class);
 <?= $view->partial('page-header', [
     'title' => 'Dashboard General',
     'subtitle' => 'Monitoreo de correspondencia, trámites y documentación de la red',
-    'actions' => '<a href="/documentos/nuevo" class="btn-primary inline-flex items-center gap-1.5">' . icon('plus-circle', 'w-4 h-4 mr-1 text-white') . '<span class="text-white">Nuevo Documento</span></a>'
+    'actions' => '<a href="' . app_url('/documentos/nuevo') . '" class="btn-primary inline-flex items-center gap-1.5">' . icon('plus-circle', 'w-4 h-4 mr-1 text-white') . '<span class="text-white">Nuevo Documento</span></a>'
 ]) ?>
 
 <!-- Grid de KPIs Principales (§ 7.7 Patrón P1) -->
@@ -56,7 +56,7 @@ $view = $container->get(\App\Support\View::class);
     <div class="card lg:col-span-1 flex flex-col">
         <div class="flex items-center justify-between pb-4 border-b border-ink-100 dark:border-ink-800 mb-4">
             <h2 class="font-display font-bold text-base text-ink-900 dark:text-white">Por Categoría</h2>
-            <a href="/documentos" class="text-xs font-semibold text-brand-600 hover:text-brand-700">Ver todas</a>
+            <a href="<?= app_url('/documentos') ?>" class="text-xs font-semibold text-brand-600 hover:text-brand-700">Ver todas</a>
         </div>
         <div class="space-y-3 overflow-y-auto max-h-[360px] pr-1">
             <?php foreach ($desgloseCategorias as $cat): ?>
@@ -117,7 +117,7 @@ $view = $container->get(\App\Support\View::class);
             <h2 class="font-display font-bold text-base text-ink-900 dark:text-white">Últimos Documentos Registrados</h2>
             <p class="text-xs text-ink-500 mt-0.5">Accesibles según tu alcance de usuario</p>
         </div>
-        <a href="/documentos" class="btn-neutral text-xs font-semibold">
+        <a href="<?= app_url('/documentos') ?>" class="btn-neutral text-xs font-semibold">
             <span>Ver bandeja completa</span>
             <?= icon('arrow-right', 'w-3.5 h-3.5 ml-1') ?>
         </a>
@@ -146,7 +146,7 @@ $view = $container->get(\App\Support\View::class);
                     <?php foreach ($recientes as $doc): ?>
                         <tr class="hover:bg-ink-50 dark:hover:bg-ink-800/30 transition-colors">
                             <td class="py-3.5 px-4 font-mono font-bold text-xs text-brand-600 dark:text-brand-400">
-                                <a href="/documentos/<?= $doc->id ?>" class="hover:underline">
+                                <a href="<?= app_url("/documentos/{$doc->id}") ?>" class="hover:underline">
                                     <?= e($doc->codigo) ?>
                                 </a>
                             </td>
@@ -168,7 +168,7 @@ $view = $container->get(\App\Support\View::class);
                                 <?php endif; ?>
                             </td>
                             <td class="py-3.5 px-4 text-right">
-                                <a href="/documentos/<?= $doc->id ?>" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 p-1 rounded hover:bg-brand-50 transition-colors">
+                                <a href="<?= app_url("/documentos/{$doc->id}") ?>" class="inline-flex items-center gap-1 text-xs font-bold text-brand-600 hover:text-brand-700 p-1 rounded hover:bg-brand-50 transition-colors">
                                     <span>Ver</span>
                                     <?= icon('chevron-right', 'w-3.5 h-3.5') ?>
                                 </a>

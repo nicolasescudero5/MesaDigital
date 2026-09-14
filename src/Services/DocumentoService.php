@@ -79,8 +79,14 @@ class DocumentoService
             throw new InvalidArgumentException("Esta categoría no tiene responsables activos, contactá al Administrador.");
         }
 
-        // 3. Normalizar archivos subidos
+        // 3. Normalizar archivos subidos (desde PC y/o desde sesión QR)
         $filesToProcess = $this->normalizeFilesArray($uploadedFiles);
+        if (!empty($data['temp_token'])) {
+            $qrFiles = $this->getTempTokenFiles((string)$data['temp_token']);
+            if (!empty($qrFiles)) {
+                $filesToProcess = array_merge($filesToProcess, $qrFiles);
+            }
+        }
         if (empty($filesToProcess)) {
             throw new InvalidArgumentException("Debe adjuntar al menos una foto o archivo del documento.");
         }
@@ -471,6 +477,39 @@ class DocumentoService
         ));
 
         return $adjunto;
+    }
+
+    /**
+     * Recupera los archivos temporales asociados a un token de carga por QR
+     */
+    public function getTempTokenFiles(string $token): array
+    {
+        $stmt = $this->pdo->prepare("SELECT * FROM upload_sessions WHERE token = :token AND estado = 'completado' LIMIT 1");
+        $stmt->execute([':token' => $token]);
+        $session = $stmt->fetch(PDO::FETCH_OBJ);
+
+        if (!$session || empty($session->archivos_json)) {
+            return [];
+        }
+
+        $filesMeta = json_decode($session->archivos_json, true) ?: [];
+        $files = [];
+        $root = dirname(dirname(__DIR__));
+
+        foreach ($filesMeta as $meta) {
+            $absPath = $root . '/' . ltrim($meta['temp_path'], '/');
+            if (file_exists($absPath)) {
+                $files[] = [
+                    'name' => $meta['original_name'],
+                    'type' => $meta['mime_type'],
+                    'tmp_name' => $absPath,
+                    'error' => UPLOAD_ERR_OK,
+                    'size' => $meta['size_bytes'],
+                ];
+            }
+        }
+
+        return $files;
     }
 
     /**

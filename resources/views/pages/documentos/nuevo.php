@@ -18,14 +18,16 @@ foreach ($tipos as $t) {
 $categoriasMap = [];
 foreach ($categorias as $c) {
     $resps = [];
-    foreach ($c->responsables as $r) {
-        $resps[] = [
-            'id' => $r->id,
-            'email' => $r->email,
-            'usuario_nombre' => $r->usuario_nombre,
-            'sede_id' => $r->sede_id,
-            'sede_nombre' => $r->sede_nombre,
-        ];
+    if (!empty($c->responsables)) {
+        foreach ($c->responsables as $r) {
+            $resps[] = [
+                'id' => $r->id,
+                'email' => $r->email,
+                'usuario_nombre' => $r->usuario_nombre ?? '',
+                'sede_id' => $r->sede_id ?? null,
+                'sede_nombre' => $r->sede_nombre ?? '',
+            ];
+        }
     }
     $categoriasMap[$c->id] = [
         'id' => $c->id,
@@ -34,6 +36,164 @@ foreach ($categorias as $c) {
     ];
 }
 ?>
+<script src="<?= asset_url('js/qrcode.min.js') ?>"></script>
+
+<script>
+function nuevoDocumentoForm() {
+    return {
+        filesCount: 0,
+        fileNames: [],
+        sedeId: <?= json_encode((string)old('sede_id', $user->sede_id ?? '')) ?>,
+        tipoId: <?= json_encode((string)old('tipo_documento_id', '')) ?>,
+        categoriaId: <?= json_encode((string)old('categoria_id', '')) ?>,
+        responsableEmail: <?= json_encode((string)old('responsable_email', '')) ?>,
+        tipos: <?= json_encode($tiposMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+        categorias: <?= json_encode($categoriasMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+        qrToken: "",
+        qrUrl: "",
+        qrStatus: "loading",
+        qrFiles: [],
+        tempToken: <?= json_encode((string)old('temp_token', '')) ?>,
+        pollInterval: null,
+        init() {
+            if (this.tipoId) {
+                this.recalculateDerivation();
+            }
+            if (this.tempToken) {
+                this.restoreQrSession(this.tempToken);
+            } else {
+                this.generateQrSession();
+            }
+        },
+        restoreQrSession(token) {
+            this.qrToken = token;
+            this.qrUrl = "<?= app_url('/cargar?token=') ?>" + token;
+            this.qrStatus = "loading";
+            fetch("<?= app_url('/api/upload-session/status') ?>?token=" + token)
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === "completed" || res.status === "pending") {
+                    this.qrStatus = res.status;
+                    this.qrFiles = res.files || [];
+                    this.filesCount = this.qrFiles.length;
+                    this.fileNames = this.qrFiles.map(f => f.original_name + " (Enviado desde Celular / QR)");
+                    this.$nextTick(() => {
+                        this.renderQrCode();
+                    });
+                    this.startPolling();
+                } else {
+                    this.tempToken = "";
+                    this.generateQrSession();
+                }
+            })
+            .catch(() => {
+                this.generateQrSession();
+            });
+        },
+        generateQrSession() {
+            this.qrStatus = "loading";
+            const csrfInput = document.querySelector('input[name="_csrf_token"]');
+            const csrfToken = csrfInput ? csrfInput.value : "";
+            fetch("<?= app_url('/api/upload-session/create') ?>", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": csrfToken
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    this.qrToken = data.token;
+                    this.qrUrl = data.upload_url;
+                    this.qrStatus = "pending";
+                    this.$nextTick(() => {
+                        this.renderQrCode();
+                    });
+                    this.startPolling();
+                } else {
+                    console.error("Error al generar sesión QR:", data);
+                    this.qrStatus = "idle";
+                }
+            })
+            .catch(err => {
+                console.error("Error al conectar con API QR:", err);
+                this.qrStatus = "idle";
+            });
+        },
+        renderQrCode() {
+            const container = document.getElementById("inline_qrcode_container");
+            if (!container) return;
+            container.innerHTML = "";
+            if (typeof QRCode !== "undefined" && this.qrUrl) {
+                try {
+                    new QRCode(container, {
+                        text: this.qrUrl,
+                        width: 140,
+                        height: 140
+                    });
+                } catch (e) {
+                    console.error("Error al renderizar código QR:", e);
+                    container.innerHTML = '<span class="text-xs text-danger-500">Error al renderizar QR</span>';
+                }
+            }
+        },
+        startPolling() {
+            if (this.pollInterval) clearInterval(this.pollInterval);
+            this.pollInterval = setInterval(() => {
+                if (!this.qrToken || this.qrStatus === "expired") return;
+                fetch("<?= app_url('/api/upload-session/status') ?>?token=" + this.qrToken)
+                .then(r => r.json())
+                .then(res => {
+                    if (res.status === "completed") {
+                        this.qrStatus = "completed";
+                        this.qrFiles = res.files || [];
+                        this.tempToken = this.qrToken;
+                        this.filesCount = this.qrFiles.length;
+                        this.fileNames = this.qrFiles.map(f => f.original_name + " (Enviado desde Celular / QR)");
+                    } else if (res.status === "expired") {
+                        this.qrStatus = "expired";
+                        clearInterval(this.pollInterval);
+                    }
+                })
+                .catch(() => {});
+            }, 1000);
+        },
+        recalculateDerivation() {
+            const t = this.tipos[this.tipoId];
+            if (t && t.categoria_id) {
+                this.categoriaId = String(t.categoria_id);
+                const resps = this.getCurrentResponsables();
+                if (resps.length === 1) {
+                    this.responsableEmail = resps[0].email;
+                } else {
+                    this.responsableEmail = "";
+                }
+            } else {
+                this.categoriaId = "";
+                this.responsableEmail = "";
+            }
+        },
+        getCurrentResponsables() {
+            if (!this.categoriaId || !this.categorias[this.categoriaId]) return [];
+            const all = this.categorias[this.categoriaId].responsables || [];
+            if (!this.sedeId) return all;
+            const sedeSpecific = all.filter(r => String(r.sede_id) === String(this.sedeId));
+            if (sedeSpecific.length > 0) return sedeSpecific;
+            return all.filter(r => !r.sede_id);
+        },
+        getCurrentCategoriaNombre() {
+            if (!this.categoriaId || !this.categorias[this.categoriaId]) return "";
+            return this.categorias[this.categoriaId].nombre;
+        },
+        handleFiles(event) {
+            const files = event.target.files;
+            this.filesCount = files.length;
+            this.fileNames = Array.from(files).map(f => f.name + " (" + (f.size / 1024 / 1024).toFixed(2) + " MB)");
+        }
+    };
+}
+</script>
 
 <?= $view->partial('page-header', [
     'title' => 'Registrar Nuevo Documento',
@@ -44,58 +204,7 @@ foreach ($categorias as $c) {
     ]
 ]) ?>
 
-<div class="max-w-2xl mx-auto" x-data='{
-    filesCount: 0,
-    fileNames: [],
-    sedeId: "<?= old('sede_id', $user->sede_id ?? '') ?>",
-    tipoId: "<?= old('tipo_documento_id', '') ?>",
-    categoriaId: "<?= old('categoria_id', '') ?>",
-    responsableEmail: "<?= old('responsable_email', '') ?>",
-    tipos: <?= json_encode($tiposMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
-    categorias: <?= json_encode($categoriasMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
-    init() {
-        if (this.tipoId) {
-            this.recalculateDerivation();
-        }
-    },
-    recalculateDerivation() {
-        const t = this.tipos[this.tipoId];
-        if (t && t.categoria_id) {
-            this.categoriaId = t.categoria_id;
-            const resps = this.getCurrentResponsables();
-            if (resps.length === 1) {
-                this.responsableEmail = resps[0].email;
-            } else {
-                this.responsableEmail = "";
-            }
-        } else {
-            this.categoriaId = "";
-            this.responsableEmail = "";
-        }
-    },
-    getCurrentResponsables() {
-        if (!this.categoriaId || !this.categorias[this.categoriaId]) return [];
-        const all = this.categorias[this.categoriaId].responsables || [];
-        if (!this.sedeId) return all;
-        
-        // Priorizar responsables específicos de esta sede si existen
-        const sedeSpecific = all.filter(r => r.sede_id == this.sedeId);
-        if (sedeSpecific.length > 0) {
-            return sedeSpecific;
-        }
-        // Si no hay específicos, usar los globales (sede_id null)
-        return all.filter(r => !r.sede_id);
-    },
-    getCurrentCategoriaNombre() {
-        if (!this.categoriaId || !this.categorias[this.categoriaId]) return "";
-        return this.categorias[this.categoriaId].nombre;
-    },
-    handleFiles(event) {
-        const files = event.target.files;
-        this.filesCount = files.length;
-        this.fileNames = Array.from(files).map(f => f.name + " (" + (f.size / 1024 / 1024).toFixed(2) + " MB)");
-    }
-}'>
+<div class="max-w-2xl mx-auto" x-data="nuevoDocumentoForm()">
 
     <!-- Alerta de Posible Duplicado (§ 4.5) -->
     <?php if ($isDuplicateWarning): ?>
@@ -109,49 +218,93 @@ foreach ($categorias as $c) {
     <?php endif; ?>
 
     <div class="card p-6 md:p-8 shadow-card">
-        <form action="/documentos" method="POST" enctype="multipart/form-data" class="space-y-6">
+        <form action="<?= app_url('/documentos') ?>" method="POST" enctype="multipart/form-data" class="space-y-6">
             <?= csrf_field() ?>
+            <input type="hidden" name="temp_token" :value="tempToken">
 
-            <!-- ZONA DE ADJUNTO / TOMAR FOTO (§ 7.5 - Control Central) -->
+            <!-- ZONA DE ADJUNTO / CARGA QR EN VIVO (§ 7.5 - Control Central) -->
             <div>
-                <label class="form-label">
-                    Foto o Archivo del Documento <span class="text-danger-500">*</span>
+                <label class="form-label flex items-center justify-between mb-2">
+                    <span>Foto o Archivo del Documento <span class="text-danger-500">*</span></span>
+                    <span x-show="tempToken" class="text-xs font-bold text-success-600 flex items-center gap-1">
+                        <?= icon('check-circle', 'w-4 h-4 text-success-600') ?> Archivo recibido vía QR
+                    </span>
                 </label>
 
-                <div class="border-2 border-dashed border-ink-300 dark:border-ink-700 hover:border-brand-500 dark:hover:border-brand-500 rounded-xl p-6 text-center bg-ink-50/70 dark:bg-ink-900/50 transition-colors">
+                <div class="border-2 border-dashed border-brand-300 dark:border-brand-700 hover:border-brand-500 rounded-2xl p-6 text-center bg-brand-50/20 dark:bg-brand-950/20 transition-all">
                     
-                    <div class="w-12 h-12 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center justify-center mx-auto mb-3">
-                        <?= icon('camera', 'w-6 h-6 text-brand-600') ?>
+                    <!-- BLOQUE CENTRAL QR Y ESTADO -->
+                    <div class="flex flex-col items-center justify-center mb-4">
+                        
+                        <!-- Estado 1: Loading -->
+                        <template x-if="qrStatus === 'loading'">
+                            <div class="py-6 flex flex-col items-center justify-center gap-2">
+                                <span class="animate-spin text-brand-600"><?= icon('loader', 'w-8 h-8') ?></span>
+                                <span class="text-xs text-ink-500 font-medium">Generando código QR...</span>
+                            </div>
+                        </template>
+
+                        <!-- Estado 2: Pending o Completed (QR desplegado en vivo de forma continua) -->
+                        <template x-if="qrStatus === 'pending' || qrStatus === 'completed'">
+                            <div class="flex flex-col items-center gap-3">
+                                
+                                <!-- Badge de Archivos Recibidos -->
+                                <template x-if="qrStatus === 'completed'">
+                                    <div class="py-2 px-4 bg-success-50 dark:bg-success-950/50 border border-success-200 dark:border-success-800 rounded-xl flex items-center gap-2 text-xs font-bold text-success-800 dark:text-success-200 shadow-xs">
+                                        <?= icon('check-circle', 'w-4 h-4 text-success-600') ?>
+                                        <span x-text="filesCount + ' archivo(s) recibido(s) desde el celular'"></span>
+                                    </div>
+                                </template>
+
+                                <!-- Código QR -->
+                                <div class="bg-white p-3 rounded-2xl border border-brand-200 dark:border-brand-800 shadow-sm hover:shadow-md transition-shadow">
+                                    <div id="inline_qrcode_container" class="flex justify-center items-center"></div>
+                                </div>
+
+                                <!-- Mensaje indicativo -->
+                                <div class="flex items-center gap-2 text-xs font-bold text-brand-700 dark:text-brand-300 bg-brand-100/70 dark:bg-brand-900/40 px-3.5 py-1.5 rounded-full border border-brand-200 dark:border-brand-700 shadow-xs">
+                                    <span class="animate-ping w-2 h-2 rounded-full bg-brand-500 shrink-0"></span>
+                                    <span x-text="qrStatus === 'completed' ? 'Podés seguir escaneando o enviando más fotos desde el celular' : 'Escaneá con tu celular para subir fotos o PDFs'"></span>
+                                </div>
+
+                                <div class="text-[11px] text-ink-400">
+                                    ¿Estás probando en la misma PC? <a :href="qrUrl" target="_blank" class="text-brand-600 underline font-bold hover:text-brand-700">Abrir enlace en otra pestaña</a>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Estado 4: Expirado / Inactivo -->
+                        <template x-if="qrStatus === 'expired' || qrStatus === 'idle'">
+                            <div class="py-4 flex flex-col items-center gap-2">
+                                <div class="w-10 h-10 rounded-full bg-warning-100 text-warning-600 flex items-center justify-center">
+                                    <?= icon('alert-triangle', 'w-5 h-5 text-warning-600') ?>
+                                </div>
+                                <span class="text-xs text-ink-500">Sesión QR inactiva o expirada</span>
+                                <button type="button" @click="generateQrSession" class="btn-neutral text-xs px-3 py-1.5 font-bold">Generar Nuevo QR</button>
+                            </div>
+                        </template>
+
                     </div>
 
-                    <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mb-2">
-                        <!-- Botón directo a Cámara Móvil -->
-                        <label class="btn-primary cursor-pointer shadow-xs font-semibold inline-flex items-center gap-2 text-white">
-                            <?= icon('camera', 'w-4 h-4 text-white') ?>
-                            <span>Tomar Foto</span>
-                            <input type="file" name="adjuntos[]" accept="image/*" capture="environment" class="hidden" @change="handleFiles" multiple>
-                        </label>
-
-                        <span class="text-xs text-ink-400 font-medium">o</span>
-
-                        <!-- Selector estándar de archivos -->
-                        <label class="btn-neutral cursor-pointer text-xs font-semibold inline-flex items-center gap-2 shadow-xs">
+                    <!-- OPCIÓN SECUNDARIA: SELECCIONAR DESDE LA PC -->
+                    <div class="pt-3 border-t border-ink-200/60 dark:border-ink-800 flex flex-col sm:flex-row items-center justify-center gap-3">
+                        <label class="btn-neutral cursor-pointer text-xs font-semibold inline-flex items-center gap-2 shadow-xs bg-white dark:bg-ink-800 border border-ink-300 dark:border-ink-700 hover:bg-ink-100">
                             <?= icon('upload-cloud', 'w-4 h-4 text-ink-500') ?>
-                            <span>Seleccionar archivos (PDF, JPG, PNG)</span>
+                            <span>Seleccionar desde la PC (PDF, JPG, PNG)</span>
                             <input type="file" name="adjuntos[]" accept="image/jpeg,image/png,image/webp,application/pdf" class="hidden" @change="handleFiles" multiple>
                         </label>
                     </div>
 
-                    <p class="text-xs text-ink-400">
+                    <p class="text-[11px] text-ink-400 mt-2">
                         Formatos permitidos: JPG, PNG, WebP o PDF. Máximo 10 MB por archivo.
                     </p>
 
                     <!-- Lista de archivos seleccionados -->
                     <template x-if="filesCount > 0">
-                        <div class="mt-4 p-3 bg-white dark:bg-ink-800 rounded-lg border border-ink-200 dark:border-ink-700 text-left shadow-xs">
+                        <div class="mt-4 p-3 bg-white dark:bg-ink-800 rounded-xl border border-ink-200 dark:border-ink-700 text-left shadow-xs">
                             <div class="text-xs font-bold text-ink-800 dark:text-white mb-1 flex items-center gap-1.5">
                                 <span class="text-success-600"><?= icon('check-circle', 'w-4 h-4 text-success-600') ?></span>
-                                <span x-text="filesCount + ' archivo(s) seleccionado(s):'"></span>
+                                <span x-text="filesCount + ' archivo(s) listo(s) para registrar:'"></span>
                             </div>
                             <ul class="text-xs text-ink-600 dark:text-ink-300 list-disc list-inside space-y-0.5">
                                 <template x-for="name in fileNames" :key="name">
@@ -338,7 +491,7 @@ foreach ($categorias as $c) {
 
             <!-- Botones de Guardado -->
             <div class="pt-6 border-t border-ink-200 dark:border-ink-800 flex items-center justify-end gap-3">
-                <a href="/documentos" class="btn-ghost font-semibold">Cancelar</a>
+                <a href="<?= app_url('/documentos') ?>" class="btn-ghost font-semibold">Cancelar</a>
                 <button type="submit" class="btn-primary px-6 inline-flex items-center gap-2 shadow-xs font-bold text-white">
                     <?= icon('check', 'w-4 h-4 text-white') ?>
                     <span>Registrar y Notificar</span>
