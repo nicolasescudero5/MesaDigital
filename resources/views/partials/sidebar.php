@@ -43,7 +43,7 @@ function is_active(string $path, string $currentPath): bool {
         <!-- Botón de Acción Principal Único -->
         <?php if ($user): ?>
             <div>
-                <a href="/documentos/nuevo" class="w-full btn-primary flex items-center justify-center gap-2 shadow-sm font-semibold text-white">
+                <a href="<?= app_url('documentos/nuevo') ?>" class="w-full btn-primary flex items-center justify-center gap-2 shadow-sm font-semibold text-white">
                     <?= icon('plus-circle', 'w-4 h-4 text-white') ?>
                     <span>Nuevo Documento</span>
                 </a>
@@ -56,11 +56,11 @@ function is_active(string $path, string $currentPath): bool {
                 Navegación
             </div>
             <nav class="space-y-1">
-                <a href="/dashboard" class="nav-item <?= is_active('/dashboard', $currentPath) ? 'active' : '' ?>">
+                <a href="<?= app_url('dashboard') ?>" class="nav-item <?= is_active('/dashboard', $currentPath) ? 'active' : '' ?>">
                     <?= icon('layout-dashboard', 'w-4 h-4 ' . (is_active('/dashboard', $currentPath) ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 dark:text-ink-500')) ?>
                     <span>Dashboard</span>
                 </a>
-                <a href="/documentos" class="nav-item <?= is_active('/documentos', $currentPath) && !str_contains($currentPath, 'nuevo') ? 'active' : '' ?>">
+                <a href="<?= app_url('documentos') ?>" class="nav-item <?= is_active('/documentos', $currentPath) && !str_contains($currentPath, 'nuevo') ? 'active' : '' ?>">
                     <?= icon('inbox', 'w-4 h-4 ' . (is_active('/documentos', $currentPath) && !str_contains($currentPath, 'nuevo') ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 dark:text-ink-500')) ?>
                     <span>Bandeja de Documentos</span>
                 </a>
@@ -74,23 +74,23 @@ function is_active(string $path, string $currentPath): bool {
                     Administración
                 </div>
                 <nav class="space-y-1">
-                    <a href="/sedes" class="nav-item <?= is_active('/sedes', $currentPath) ? 'active' : '' ?>">
+                    <a href="<?= app_url('sedes') ?>" class="nav-item <?= is_active('/sedes', $currentPath) ? 'active' : '' ?>">
                         <?= icon('building-2', 'w-4 h-4 ' . (is_active('/sedes', $currentPath) ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 dark:text-ink-500')) ?>
                         <span>Sedes</span>
                     </a>
-                    <a href="/categorias" class="nav-item <?= is_active('/categorias', $currentPath) ? 'active' : '' ?>">
+                    <a href="<?= app_url('categorias') ?>" class="nav-item <?= is_active('/categorias', $currentPath) ? 'active' : '' ?>">
                         <?= icon('layers', 'w-4 h-4 ' . (is_active('/categorias', $currentPath) ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 dark:text-ink-500')) ?>
                         <span>Categorías y Resp.</span>
                     </a>
-                    <a href="/tipos-documento" class="nav-item <?= is_active('/tipos-documento', $currentPath) ? 'active' : '' ?>">
+                    <a href="<?= app_url('tipos-documento') ?>" class="nav-item <?= is_active('/tipos-documento', $currentPath) ? 'active' : '' ?>">
                         <?= icon('file-text', 'w-4 h-4 ' . (is_active('/tipos-documento', $currentPath) ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 dark:text-ink-500')) ?>
                         <span>Tipos de Documento</span>
                     </a>
-                    <a href="/caracteres-remitente" class="nav-item <?= is_active('/caracteres-remitente', $currentPath) ? 'active' : '' ?>">
+                    <a href="<?= app_url('caracteres-remitente') ?>" class="nav-item <?= is_active('/caracteres-remitente', $currentPath) ? 'active' : '' ?>">
                         <?= icon('tag', 'w-4 h-4 ' . (is_active('/caracteres-remitente', $currentPath) ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 dark:text-ink-500')) ?>
                         <span>Carácter de Remitente</span>
                     </a>
-                    <a href="/usuarios" class="nav-item <?= is_active('/usuarios', $currentPath) ? 'active' : '' ?>">
+                    <a href="<?= app_url('usuarios') ?>" class="nav-item <?= is_active('/usuarios', $currentPath) ? 'active' : '' ?>">
                         <?= icon('users', 'w-4 h-4 ' . (is_active('/usuarios', $currentPath) ? 'text-brand-600 dark:text-brand-400' : 'text-ink-400 dark:text-ink-500')) ?>
                         <span>Usuarios y Roles</span>
                     </a>
@@ -124,7 +124,7 @@ function is_active(string $path, string $currentPath): bool {
             </button>
 
             <!-- Cerrar Sesión (Siempre POST con CSRF § 6.2) -->
-            <form action="/logout" method="POST" class="inline">
+            <form action="<?= app_url('logout') ?>" method="POST" class="inline">
                 <?= csrf_field() ?>
                 <button type="submit" class="inline-flex items-center gap-1.5 text-xs font-semibold text-danger-600 hover:text-danger-700 p-1.5 rounded hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors">
                     <?= icon('log-out', 'w-4 h-4 text-danger-500') ?>

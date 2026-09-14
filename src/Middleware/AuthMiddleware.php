@@ -14,8 +14,7 @@ class AuthMiddleware
     {
         if (!$this->authProvider->isAuthenticated()) {
             $_SESSION['intended_url'] = $_SERVER['REQUEST_URI'] ?? '/dashboard';
-            header('Location: /login');
-            exit;
+            redirect('/login');
         }
 
         return $next();

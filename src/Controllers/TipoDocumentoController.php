@@ -41,8 +41,7 @@ class TipoDocumentoController
 
         if (empty($nombre)) {
             flash('error', 'El nombre es obligatorio.');
-            header("Location: /tipos-documento");
-            exit;
+            redirect('/tipos-documento');
         }
 
         try {
@@ -59,8 +58,7 @@ class TipoDocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /tipos-documento");
-        exit;
+        redirect('/tipos-documento');
     }
 
     public function update(array $vars): void
@@ -75,8 +73,7 @@ class TipoDocumentoController
         $tipo = $this->tipoDocumentoRepository->findById($id);
         if (!$tipo) {
             flash('error', 'Tipo no encontrado.');
-            header("Location: /tipos-documento");
-            exit;
+            redirect('/tipos-documento');
         }
 
         $tipo->nombre = $nombre;
@@ -92,8 +89,7 @@ class TipoDocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /tipos-documento");
-        exit;
+        redirect('/tipos-documento');
     }
 
     public function deactivate(array $vars): void
@@ -108,7 +104,6 @@ class TipoDocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /tipos-documento");
-        exit;
+        redirect('/tipos-documento');
     }
 }

@@ -146,7 +146,7 @@ class Router
             http_response_code(500);
 
             try {
-                $logger = $this->container->get(\Monolog\Logger::class);
+                $logger = $this->container->get(\Psr\Log\LoggerInterface::class);
                 $logger->error("Unhandled Exception: " . $e->getMessage(), [
                     'exception' => get_class($e),
                     'file' => $e->getFile(),
@@ -167,8 +167,10 @@ class Router
                         ? $e->getMessage() 
                         : 'Ha ocurrido un error inesperado en el servidor. Por favor, intente más tarde.'
                 ], 'app');
-            } catch (\Throwable) {
-                echo "<h1>Error 500</h1><p>" . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</p>";
+            } catch (\Throwable $ex) {
+                echo "<h1>Error 500</h1><p><strong>Message:</strong> " . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . "</p>";
+                echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . " (Line " . $e->getLine() . ")</p>";
+                echo "<pre>" . htmlspecialchars($e->getTraceAsString(), ENT_QUOTES, 'UTF-8') . "</pre>";
             }
         }
     }

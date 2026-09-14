@@ -36,8 +36,7 @@ class CaracterRemitenteController
 
         if (empty($nombre)) {
             flash('error', 'El nombre es obligatorio.');
-            header("Location: /caracteres-remitente");
-            exit;
+            redirect('/caracteres-remitente');
         }
 
         try {
@@ -53,8 +52,7 @@ class CaracterRemitenteController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /caracteres-remitente");
-        exit;
+        redirect('/caracteres-remitente');
     }
 
     public function update(array $vars): void
@@ -68,8 +66,7 @@ class CaracterRemitenteController
         $caracter = $this->caracterRemitenteRepository->findById($id);
         if (!$caracter) {
             flash('error', 'Carácter no encontrado.');
-            header("Location: /caracteres-remitente");
-            exit;
+            redirect('/caracteres-remitente');
         }
 
         $caracter->nombre = $nombre;
@@ -84,8 +81,7 @@ class CaracterRemitenteController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /caracteres-remitente");
-        exit;
+        redirect('/caracteres-remitente');
     }
 
     public function deactivate(array $vars): void
@@ -100,7 +96,6 @@ class CaracterRemitenteController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /caracteres-remitente");
-        exit;
+        redirect('/caracteres-remitente');
     }
 }

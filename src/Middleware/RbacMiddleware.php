@@ -15,8 +15,7 @@ class RbacMiddleware
         $user = $this->authProvider->currentUser();
 
         if (!$user) {
-            header('Location: /login');
-            exit;
+            redirect('/login');
         }
 
         if (!empty($allowedRoles) && !in_array($user->rol, $allowedRoles, true)) {

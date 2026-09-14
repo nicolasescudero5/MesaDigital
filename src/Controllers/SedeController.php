@@ -36,8 +36,7 @@ class SedeController
 
         if (empty($nombre)) {
             flash('error', 'El nombre de la sede es obligatorio.');
-            header("Location: /sedes");
-            exit;
+            redirect('/sedes');
         }
 
         try {
@@ -53,8 +52,7 @@ class SedeController
             flash('error', 'Error al crear la sede: ' . $e->getMessage());
         }
 
-        header("Location: /sedes");
-        exit;
+        redirect('/sedes');
     }
 
     public function update(array $vars): void
@@ -68,8 +66,7 @@ class SedeController
         $sede = $this->sedeRepository->findById($id);
         if (!$sede) {
             flash('error', 'Sede no encontrada.');
-            header("Location: /sedes");
-            exit;
+            redirect('/sedes');
         }
 
         $sede->nombre = $nombre;
@@ -84,8 +81,7 @@ class SedeController
             flash('error', 'Error al actualizar la sede: ' . $e->getMessage());
         }
 
-        header("Location: /sedes");
-        exit;
+        redirect('/sedes');
     }
 
     public function deactivate(array $vars): void
@@ -100,7 +96,6 @@ class SedeController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /sedes");
-        exit;
+        redirect('/sedes');
     }
 }

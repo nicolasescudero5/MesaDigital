@@ -6,6 +6,7 @@ namespace App\Support;
 
 use App\Auth\AuthProviderInterface;
 use App\Auth\GoogleAuthProvider;
+use App\Auth\PortalAuthProvider;
 use App\Auth\SimulatedAuthProvider;
 use App\Middleware\AuthMiddleware;
 use App\Middleware\CsrfMiddleware;
@@ -99,11 +100,24 @@ class Container
                 return new LocalStorageAdapter($basePath, $maxMb);
             },
 
-            // Auth Provider (Dual)
+            // Auth Provider (Multi-tenant Portal / Dual)
             AuthProviderInterface::class => function (ContainerInterface $c) {
                 $authConfig = $c->get('config.auth');
                 $appConfig = $c->get('config.app');
-                $driver = $authConfig['driver'] ?? 'simulado';
+                $driver = $authConfig['driver'] ?? 'portal';
+
+                $simulatedProvider = new SimulatedAuthProvider(
+                    $c->get(UsuarioRepository::class),
+                    $appConfig['env'] ?? 'local',
+                    $appConfig['login_simulado_habilitado'] ?? true
+                );
+
+                if (class_exists('\TenantContext') || $driver === 'portal') {
+                    return new PortalAuthProvider(
+                        $c->get(UsuarioRepository::class),
+                        $simulatedProvider
+                    );
+                }
 
                 if ($driver === 'google') {
                     return new GoogleAuthProvider(
@@ -112,12 +126,7 @@ class Container
                     );
                 }
 
-                // Default: simulado
-                return new SimulatedAuthProvider(
-                    $c->get(UsuarioRepository::class),
-                    $appConfig['env'] ?? 'local',
-                    $appConfig['login_simulado_habilitado'] ?? true
-                );
+                return $simulatedProvider;
             },
 
             // NotificacionService

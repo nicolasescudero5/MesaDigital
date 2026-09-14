@@ -29,8 +29,7 @@ $router->post('/logout', [AuthController::class, 'logout'], [AuthMiddleware::cla
 
 // Inicio / Redirección
 $router->get('/', function() {
-    header("Location: /dashboard");
-    exit;
+    redirect('/dashboard');
 }, [AuthMiddleware::class]);
 
 // Dashboard

@@ -112,8 +112,7 @@ class DocumentoController
                 if ($posibleDuplicado) {
                     $_SESSION['_old_input'] = $_POST;
                     flash('warning', "Ya existe un documento cargado hoy para el remitente '{$remitente}' (Código: {$posibleDuplicado->codigo}). ¿Deseás registrarlo de todas formas?");
-                    header("Location: /documentos/nuevo?duplicate_warning=1");
-                    exit;
+                    redirect("/documentos/nuevo?duplicate_warning=1");
                 }
             }
         }
@@ -123,13 +122,11 @@ class DocumentoController
             $documento = $this->documentoService->crear($_POST, $files, $user);
 
             flash('success', "Documento {$documento->codigo} registrado exitosamente. Se notificó a los responsables asignados.");
-            header("Location: /documentos/{$documento->id}");
-            exit;
+            redirect("/documentos/{$documento->id}");
         } catch (\Throwable $e) {
             $_SESSION['_old_input'] = $_POST;
             flash('error', $e->getMessage());
-            header("Location: /documentos/nuevo");
-            exit;
+            redirect("/documentos/nuevo");
         }
     }
 
@@ -179,8 +176,7 @@ class DocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /documentos/{$id}");
-        exit;
+        redirect("/documentos/{$id}");
     }
 
     public function reclasificar(array $vars): void
@@ -197,8 +193,7 @@ class DocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /documentos/{$id}");
-        exit;
+        redirect("/documentos/{$id}");
     }
 
     public function modificarPlazo(array $vars): void
@@ -214,8 +209,7 @@ class DocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /documentos/{$id}");
-        exit;
+        redirect("/documentos/{$id}");
     }
 
     public function resolver(array $vars): void
@@ -231,8 +225,7 @@ class DocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /documentos/{$id}");
-        exit;
+        redirect("/documentos/{$id}");
     }
 
     public function cerrar(array $vars): void
@@ -247,8 +240,7 @@ class DocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /documentos/{$id}");
-        exit;
+        redirect("/documentos/{$id}");
     }
 
     public function anular(array $vars): void
@@ -264,8 +256,7 @@ class DocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /documentos/{$id}");
-        exit;
+        redirect("/documentos/{$id}");
     }
 
     public function comentar(array $vars): void
@@ -281,8 +272,7 @@ class DocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /documentos/{$id}");
-        exit;
+        redirect("/documentos/{$id}");
     }
 
     public function adjuntar(array $vars): void
@@ -298,8 +288,7 @@ class DocumentoController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /documentos/{$id}");
-        exit;
+        redirect("/documentos/{$id}");
     }
 
     /**

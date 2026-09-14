@@ -16,12 +16,74 @@ if (php_sapi_name() === 'cli-server') {
     }
 }
 
-require_once __DIR__ . '/../vendor/autoload.php';
+// Iniciar buffering de salida para inyectar URL_BASE a enlaces y form actions
+ob_start(function($buffer) {
+    if (defined('URL_BASE') && URL_BASE !== '') {
+        $pattern = '/(href|action)="\/((?:documentos|dashboard|sedes|categorias|tipos-documento|caracteres-remitente|usuarios|reportes|logout)(?:[\/?"#][^"]*)?|[\?#]?)"/i';
+        $buffer = preg_replace_callback($pattern, function($matches) {
+            $attribute = $matches[1];
+            $path = $matches[2];
+            return $attribute . '="' . URL_BASE . '/' . ltrim($path, '/') . '"';
+        }, $buffer);
+    }
+    return $buffer;
+});
 
-// 1. Variables de entorno
+if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+} elseif (file_exists(dirname(dirname(__DIR__)) . '/vendor/autoload.php')) {
+    require_once dirname(dirname(__DIR__)) . '/vendor/autoload.php';
+}
+
+spl_autoload_register(function ($class) {
+    $prefix = 'App\\';
+    $baseDir = __DIR__ . '/../src/';
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+    $relativeClass = substr($class, $len);
+    $file = $baseDir . str_replace('\\', '/', $relativeClass) . '.php';
+    if (file_exists($file)) {
+        require_once $file;
+    }
+});
+
+if (file_exists(__DIR__ . '/../src/Support/Helpers.php')) {
+    require_once __DIR__ . '/../src/Support/Helpers.php';
+}
+
+// 1. Variables de entorno globales y locales
+$rootEnvFile = dirname(dirname(__DIR__)) . '/.env';
+if (file_exists($rootEnvFile)) {
+    $lines = file($rootEnvFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || strpos($line, '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            putenv("$key=$value");
+            $_ENV[$key] = $value;
+        }
+    }
+}
 if (file_exists(__DIR__ . '/../.env')) {
     $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
     $dotenv->safeLoad();
+}
+
+// 2. Bootstrap Portal TenantContext si está ejecutando en el ecosistema appcolegios
+$portalTenantFile = dirname(dirname(__DIR__)) . '/portal/app/core/TenantContext.php';
+if (file_exists($portalTenantFile)) {
+    require_once $portalTenantFile;
+    if (class_exists('\TenantContext')) {
+        if (method_exists('\TenantContext', 'startPortalSession')) {
+            \TenantContext::startPortalSession();
+        }
+        \TenantContext::init();
+    }
 }
 
 $appConfig = require __DIR__ . '/../config/app.php';
@@ -35,15 +97,20 @@ if (($appConfig['env'] ?? 'local') === 'local') {
     error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT);
 }
 
-// 2. Zona horaria y localización
+// 3. Zona horaria y localización
 date_default_timezone_set($appConfig['timezone'] ?? 'America/Argentina/Buenos_Aires');
 
-// 3. Configuración estricta de cookies de sesión (§ 6.2)
+// 4. Configuración de sesión (TenantContext o Fallback)
 if (session_status() === PHP_SESSION_NONE) {
+    session_name('APPCOLEGIOS_SESSID');
+    $savePath = dirname(dirname(__DIR__)) . '/storage/sessions';
+    if (is_dir($savePath) && is_writable($savePath)) {
+        session_save_path($savePath);
+    }
     ini_set('session.use_strict_mode', '1');
     ini_set('session.cookie_httponly', '1');
-    ini_set('session.cookie_samesite', 'Strict');
-    ini_set('session.gc_maxlifetime', '1800'); // 30 minutos
+    ini_set('session.cookie_samesite', 'Lax');
+    ini_set('session.gc_maxlifetime', '86400');
 
     if (!empty($appConfig['session_secure']) || ($appConfig['env'] === 'production')) {
         ini_set('session.cookie_secure', '1');
@@ -52,20 +119,57 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// 4. Inyección de dependencias
+// 5. Inyección de dependencias
 $container = \App\Support\Container::build();
 
-// 5. Guardarraíl de seguridad obligatorio (§ 6.1 y Criterio N°13)
+// 6. Guardarraíl de seguridad obligatorio (§ 6.1 y Criterio N°13)
 if (($appConfig['env'] === 'production') && !empty($appConfig['login_simulado_habilitado'])) {
     http_response_code(500);
     die("FATAL: El login simulado está habilitado en entorno de producción. La aplicación no puede iniciar.");
 }
 
-// 6. Enrutamiento
+// 7. Enrutamiento y Normalización de URI
 $router = new \App\Support\Router($container);
 require_once __DIR__ . '/../routes/web.php';
 
 $httpMethod = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
 
-$router->dispatch($httpMethod, $uri);
+if (false !== $pos = strpos($uri, '?')) {
+    $uri = substr($uri, 0, $pos);
+}
+$uri = rawurldecode($uri);
+
+// Calcular URL_BASE para links estáticos y redirecciones
+$urlBase = '';
+$posMesa = strpos(strtolower($uri), '/mesa');
+if ($posMesa !== false) {
+    $urlBase = substr($uri, 0, $posMesa + 5);
+}
+$urlBase = rtrim($urlBase, '/');
+if (!defined('URL_BASE')) {
+    define('URL_BASE', $urlBase);
+}
+
+// Normalizar URI quitando /appcolegios, /nuevo_portal, /{subdomain}, /mesa
+$normalized = trim($uri, '/');
+if (str_starts_with($normalized, 'appcolegios')) {
+    $normalized = trim(substr($normalized, 11), '/');
+}
+if (str_starts_with($normalized, 'nuevo_portal')) {
+    $normalized = trim(substr($normalized, 12), '/');
+}
+
+$is_tenant = class_exists('\TenantContext') && \TenantContext::hasCurrentTenant();
+$tenant = $is_tenant ? \TenantContext::getCurrentTenant() : null;
+if ($tenant && str_starts_with(strtolower($normalized), strtolower($tenant->subdomain))) {
+    $normalized = trim(substr($normalized, strlen($tenant->subdomain)), '/');
+}
+
+if (str_starts_with($normalized, 'mesa')) {
+    $normalized = trim(substr($normalized, 4), '/');
+}
+
+$dispatchUri = '/' . $normalized;
+
+$router->dispatch($httpMethod, $dispatchUri);

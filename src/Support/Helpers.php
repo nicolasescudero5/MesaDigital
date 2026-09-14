@@ -91,9 +91,25 @@ if (!function_exists('app_url')) {
      */
     function app_url(string $path = ''): string
     {
-        $base = rtrim($_ENV['APP_URL'] ?? 'http://localhost:8080', '/');
+        if (defined('URL_BASE') && URL_BASE !== '') {
+            $base = rtrim(URL_BASE, '/');
+        } else {
+            $base = rtrim($_ENV['APP_URL'] ?? 'http://localhost:8080', '/');
+        }
         $path = ltrim($path, '/');
         return $path ? "{$base}/{$path}" : $base;
+    }
+}
+
+if (!function_exists('redirect')) {
+    /**
+     * Redirige a una ruta interna respetando URL_BASE
+     */
+    function redirect(string $path): void
+    {
+        $url = app_url($path);
+        header("Location: {$url}");
+        exit;
     }
 }
 

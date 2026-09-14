@@ -48,8 +48,7 @@ class CategoriaController
 
         if (empty($nombre)) {
             flash('error', 'El nombre de la categoría es obligatorio.');
-            header("Location: /categorias");
-            exit;
+            redirect('/categorias');
         }
 
         try {
@@ -75,8 +74,7 @@ class CategoriaController
             flash('error', 'Error al crear la categoría: ' . $e->getMessage());
         }
 
-        header("Location: /categorias");
-        exit;
+        redirect('/categorias');
     }
 
     public function update(array $vars): void
@@ -91,8 +89,7 @@ class CategoriaController
         $cat = $this->categoriaRepository->findById($id, false);
         if (!$cat) {
             flash('error', 'Categoría no encontrada.');
-            header("Location: /categorias");
-            exit;
+            redirect('/categorias');
         }
 
         $cat->nombre = $nombre;
@@ -108,8 +105,7 @@ class CategoriaController
             flash('error', 'Error al actualizar: ' . $e->getMessage());
         }
 
-        header("Location: /categorias");
-        exit;
+        redirect('/categorias');
     }
 
     public function deactivate(array $vars): void
@@ -128,8 +124,7 @@ class CategoriaController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /categorias");
-        exit;
+        redirect('/categorias');
     }
 
     public function addResponsable(array $vars): void
@@ -152,8 +147,7 @@ class CategoriaController
 
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             flash('error', 'Debe indicar un correo electrónico válido.');
-            header("Location: /categorias");
-            exit;
+            redirect('/categorias');
         }
 
         try {
@@ -163,8 +157,7 @@ class CategoriaController
             flash('error', 'Error al asignar responsable: ' . $e->getMessage());
         }
 
-        header("Location: /categorias");
-        exit;
+        redirect('/categorias');
     }
 
     public function removeResponsable(array $vars): void
@@ -185,7 +178,6 @@ class CategoriaController
             flash('error', 'Error al remover responsable: ' . $e->getMessage());
         }
 
-        header("Location: /categorias");
-        exit;
+        redirect('/categorias');
     }
 }

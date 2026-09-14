@@ -43,22 +43,19 @@ class UsuarioController
 
         if (empty($nombre) || empty($email)) {
             flash('error', 'Nombre y correo electrónico son obligatorios.');
-            header("Location: /usuarios");
-            exit;
+            redirect('/usuarios');
         }
 
         // Si el rol es recepcion_sede o direccion_sede, sede_id es obligatorio (§ 4.1 y § 5.2)
         if (in_array($rol, ['recepcion_sede', 'direccion_sede'], true) && !$sedeId) {
             flash('error', 'Para los roles de Recepción y Dirección de Sede es obligatorio asignar una sede.');
-            header("Location: /usuarios");
-            exit;
+            redirect('/usuarios');
         }
 
         $existente = $this->usuarioRepository->findByEmail($email);
         if ($existente) {
             flash('error', "Ya existe un usuario con el correo {$email}.");
-            header("Location: /usuarios");
-            exit;
+            redirect('/usuarios');
         }
 
         $passwordHash = !empty($password) ? password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]) : null;
@@ -79,8 +76,7 @@ class UsuarioController
             flash('error', 'Error al crear usuario: ' . $e->getMessage());
         }
 
-        header("Location: /usuarios");
-        exit;
+        redirect('/usuarios');
     }
 
     public function update(array $vars): void
@@ -97,14 +93,12 @@ class UsuarioController
         $usuario = $this->usuarioRepository->findById($id);
         if (!$usuario) {
             flash('error', 'Usuario no encontrado.');
-            header("Location: /usuarios");
-            exit;
+            redirect('/usuarios');
         }
 
         if (in_array($rol, ['recepcion_sede', 'direccion_sede'], true) && !$sedeId) {
             flash('error', 'Para los roles de Recepción y Dirección de Sede es obligatorio asignar una sede.');
-            header("Location: /usuarios");
-            exit;
+            redirect('/usuarios');
         }
 
         $usuario->nombre = $nombre;
@@ -127,8 +121,7 @@ class UsuarioController
             flash('error', 'Error al actualizar usuario: ' . $e->getMessage());
         }
 
-        header("Location: /usuarios");
-        exit;
+        redirect('/usuarios');
     }
 
     public function toggleStatus(array $vars): void
@@ -138,15 +131,13 @@ class UsuarioController
 
         if ($id === (int)$user->id) {
             flash('error', 'No podés dar de baja tu propio usuario.');
-            header("Location: /usuarios");
-            exit;
+            redirect('/usuarios');
         }
 
         $usuario = $this->usuarioRepository->findById($id);
         if (!$usuario) {
             flash('error', 'Usuario no encontrado.');
-            header("Location: /usuarios");
-            exit;
+            redirect('/usuarios');
         }
 
         try {
@@ -161,7 +152,6 @@ class UsuarioController
             flash('error', $e->getMessage());
         }
 
-        header("Location: /usuarios");
-        exit;
+        redirect('/usuarios');
     }
 }

@@ -11,11 +11,11 @@
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
     <!-- Alpine.js Local -->
-    <script defer src="/assets/js/alpine.min.js"></script>
+    <script defer src="<?= asset_url('js/alpine.min.js') ?>"></script>
     
     <!-- Compiled CSS & JS -->
-    <link rel="stylesheet" href="/assets/css/app.css">
-    <script src="/assets/js/app.js"></script>
+    <link rel="stylesheet" href="<?= asset_url('css/app.css') ?>">
+    <script src="<?= asset_url('js/app.js') ?>"></script>
 </head>
 <body class="bg-ink-50 text-ink-700 min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white font-sans" x-data="{ sidebarOpen: false }">
 
