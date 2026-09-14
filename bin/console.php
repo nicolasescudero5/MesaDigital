@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../vendor/autoload.php';
+$rootAutoload = dirname(dirname(__DIR__)) . '/vendor/autoload.php';
+if (file_exists($rootAutoload)) {
+    require_once $rootAutoload;
+} else {
+    require_once __DIR__ . '/../vendor/autoload.php';
+}
 
 $command = $argv[1] ?? 'help';
 
@@ -21,7 +26,22 @@ if ($command === 'help' || $command === '-h' || $command === '--help') {
     exit(0);
 }
 
-// 1. Variables de entorno
+// 1. Variables de entorno globales y locales
+$rootEnvFile = dirname(dirname(__DIR__)) . '/.env';
+if (file_exists($rootEnvFile)) {
+    $lines = file($rootEnvFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || strpos($line, '#') === 0) continue;
+        if (strpos($line, '=') !== false) {
+            list($key, $value) = explode('=', $line, 2);
+            $key = trim($key);
+            $value = trim($value);
+            putenv("$key=$value");
+            $_ENV[$key] = $value;
+        }
+    }
+}
 if (file_exists(__DIR__ . '/../.env')) {
     $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
     $dotenv->safeLoad();

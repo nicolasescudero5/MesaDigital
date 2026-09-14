@@ -29,10 +29,11 @@ ob_start(function($buffer) {
     return $buffer;
 });
 
-if (file_exists(__DIR__ . '/../vendor/autoload.php')) {
+$rootAutoload = dirname(dirname(__DIR__)) . '/vendor/autoload.php';
+if (file_exists($rootAutoload)) {
+    require_once $rootAutoload;
+} elseif (file_exists(__DIR__ . '/../vendor/autoload.php')) {
     require_once __DIR__ . '/../vendor/autoload.php';
-} elseif (file_exists(dirname(dirname(__DIR__)) . '/vendor/autoload.php')) {
-    require_once dirname(dirname(__DIR__)) . '/vendor/autoload.php';
 }
 
 spl_autoload_register(function ($class) {
