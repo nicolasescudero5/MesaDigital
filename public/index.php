@@ -16,10 +16,10 @@ if (php_sapi_name() === 'cli-server') {
     }
 }
 
-// Iniciar buffering de salida para inyectar URL_BASE a enlaces y form actions
+// Iniciar buffering de salida para inyectar URL_BASE a enlaces, scripts, imágenes y form actions
 ob_start(function($buffer) {
     if (defined('URL_BASE') && URL_BASE !== '') {
-        $pattern = '/(href|action)="\/((?:documentos|dashboard|sedes|categorias|tipos-documento|caracteres-remitente|usuarios|reportes|logout)(?:[\/?"#][^"]*)?|[\?#]?)"/i';
+        $pattern = '/(href|src|action)="\/((?:assets|documentos|dashboard|sedes|categorias|tipos-documento|caracteres-remitente|usuarios|reportes|logout|login|cargar|health)(?:[\/?"#][^"]*)?|[\?#]?)"/i';
         $buffer = preg_replace_callback($pattern, function($matches) {
             $attribute = $matches[1];
             $path = $matches[2];
@@ -165,10 +165,40 @@ $is_tenant = class_exists('\TenantContext') && \TenantContext::hasCurrentTenant(
 $tenant = $is_tenant ? \TenantContext::getCurrentTenant() : null;
 if ($tenant && str_starts_with(strtolower($normalized), strtolower($tenant->subdomain))) {
     $normalized = trim(substr($normalized, strlen($tenant->subdomain)), '/');
+} elseif (defined('RESOLVED_SUBDOMAIN') && RESOLVED_SUBDOMAIN && str_starts_with(strtolower($normalized), strtolower(RESOLVED_SUBDOMAIN))) {
+    $normalized = trim(substr($normalized, strlen(RESOLVED_SUBDOMAIN)), '/');
 }
 
 if (str_starts_with($normalized, 'mesa')) {
     $normalized = trim(substr($normalized, 4), '/');
+}
+
+// Servir assets estáticos directamente si coincide en la ruta (para enrutamiento Apache en producción)
+if (str_starts_with($normalized, 'assets/')) {
+    $assetFile = __DIR__ . '/' . $normalized;
+    if (file_exists($assetFile) && !is_dir($assetFile)) {
+        $ext = pathinfo($assetFile, PATHINFO_EXTENSION);
+        $mimes = [
+            'css'   => 'text/css',
+            'js'    => 'application/javascript',
+            'png'   => 'image/png',
+            'jpg'   => 'image/jpeg',
+            'jpeg'  => 'image/jpeg',
+            'gif'   => 'image/gif',
+            'ico'   => 'image/x-icon',
+            'svg'   => 'image/svg+xml',
+            'woff'  => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf'   => 'font/ttf',
+            'eot'   => 'font/vnd.ms-fontobject',
+            'pdf'   => 'application/pdf',
+        ];
+        $mime = $mimes[$ext] ?? 'text/plain';
+        header('Content-Type: ' . $mime);
+        header('Cache-Control: public, max-age=86400');
+        readfile($assetFile);
+        exit;
+    }
 }
 
 $dispatchUri = '/' . $normalized;
