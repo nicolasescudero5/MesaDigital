@@ -22,14 +22,16 @@ class UploadSessionController
         $user = $this->authProvider->currentUser();
         $token = bin2hex(random_bytes(16));
         $userId = $user ? (int)$user->id : null;
+        $expiraEl = date('Y-m-d H:i:s', time() + 900);
 
         $stmt = $this->pdo->prepare("
             INSERT INTO upload_sessions (token, usuario_id, estado, expira_el) 
-            VALUES (:token, :usuario_id, 'pendiente', DATE_ADD(NOW(), INTERVAL 15 MINUTE))
+            VALUES (:token, :usuario_id, 'pendiente', :expira_el)
         ");
         $stmt->execute([
             ':token' => $token,
-            ':usuario_id' => $userId
+            ':usuario_id' => $userId,
+            ':expira_el' => $expiraEl
         ]);
 
         $uploadUrl = app_url("/cargar?token={$token}");
