@@ -12,13 +12,14 @@ $view = $container->get(\App\Support\View::class);
     <title><?= e($pageTitle) ?></title>
     
     <!-- Alpine.js & Tailwind Fonts -->
-    <script defer src="<?= asset_url('js/alpine.min.js') ?>"></script>
+    <script defer src="<?= asset_url('js/alpine.min.js') ?>?v=<?= time() ?>"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- CSS del Sistema -->
-    <link rel="stylesheet" href="<?= asset_url('css/app.css') ?>">
+    <!-- CSS del Sistema & Tailwind Fallback -->
+    <link rel="stylesheet" href="<?= asset_url('css/app.css') ?>?v=<?= time() ?>">
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="h-full flex flex-col justify-center items-center p-4 font-sans text-ink-900 dark:text-white">
 

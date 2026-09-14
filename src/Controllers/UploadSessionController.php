@@ -34,7 +34,7 @@ class UploadSessionController
             ':expira_el' => $expiraEl
         ]);
 
-        $uploadUrl = app_url("/cargar?token={$token}");
+        $uploadUrl = app_url("/cargar?token={$token}", true);
 
         echo json_encode([
             'success' => true,

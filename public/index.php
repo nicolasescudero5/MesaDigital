@@ -7,6 +7,42 @@ declare(strict_types=1);
 @ini_set('max_input_time', '0');
 @ini_set('memory_limit', '512M');
 
+// Servir assets estáticos inmediatamente (sin requerir sesión, auth o TenantContext)
+$reqUri = $_SERVER['REQUEST_URI'] ?? '/';
+if (false !== $pos = strpos($reqUri, '?')) {
+    $reqUri = substr($reqUri, 0, $pos);
+}
+$reqUri = rawurldecode($reqUri);
+$normPath = !empty($_GET['url']) && is_string($_GET['url']) ? trim($_GET['url'], '/') : trim($reqUri, '/');
+
+if (str_starts_with($normPath, 'assets/') || strpos($normPath, '/assets/') !== false) {
+    $assetSubPath = strstr($normPath, 'assets/');
+    $assetFile = __DIR__ . '/' . $assetSubPath;
+    if (file_exists($assetFile) && !is_dir($assetFile)) {
+        $ext = pathinfo($assetFile, PATHINFO_EXTENSION);
+        $mimes = [
+            'css'   => 'text/css',
+            'js'    => 'application/javascript',
+            'png'   => 'image/png',
+            'jpg'   => 'image/jpeg',
+            'jpeg'  => 'image/jpeg',
+            'gif'   => 'image/gif',
+            'ico'   => 'image/x-icon',
+            'svg'   => 'image/svg+xml',
+            'woff'  => 'font/woff',
+            'woff2' => 'font/woff2',
+            'ttf'   => 'font/ttf',
+            'eot'   => 'font/vnd.ms-fontobject',
+            'pdf'   => 'application/pdf',
+        ];
+        $mime = $mimes[$ext] ?? 'text/plain';
+        header('Content-Type: ' . $mime);
+        header('Cache-Control: public, max-age=86400');
+        readfile($assetFile);
+        exit;
+    }
+}
+
 // Soporte para servir assets estáticos directamente en el servidor embebido de PHP
 if (php_sapi_name() === 'cli-server') {
     $urlPath = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
@@ -153,7 +189,12 @@ if (!defined('URL_BASE')) {
 }
 
 // Normalizar URI quitando /appcolegios, /nuevo_portal, /{subdomain}, /mesa
-$normalized = trim($uri, '/');
+if (!empty($_GET['url']) && is_string($_GET['url'])) {
+    $normalized = trim($_GET['url'], '/');
+} else {
+    $normalized = trim($uri, '/');
+}
+
 if (str_starts_with($normalized, 'appcolegios')) {
     $normalized = trim(substr($normalized, 11), '/');
 }

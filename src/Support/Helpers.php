@@ -87,15 +87,22 @@ if (!function_exists('fmt_datetime')) {
 
 if (!function_exists('app_url')) {
     /**
-     * Retorna la URL absoluta de una ruta
+     * Retorna la URL de una ruta (opcionalmente absoluta con esquema y host)
      */
-    function app_url(string $path = ''): string
+    function app_url(string $path = '', bool $absolute = false): string
     {
         if (defined('URL_BASE') && URL_BASE !== '') {
             $base = rtrim(URL_BASE, '/');
         } else {
             $base = rtrim($_ENV['APP_URL'] ?? 'http://localhost:8080', '/');
         }
+
+        if ($absolute && !str_starts_with($base, 'http://') && !str_starts_with($base, 'https://')) {
+            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] ?? 80) == 443 ? 'https' : 'http';
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $base = "{$scheme}://{$host}" . ($base !== '' ? (str_starts_with($base, '/') ? $base : "/{$base}") : '');
+        }
+
         $path = ltrim($path, '/');
         return $path ? "{$base}/{$path}" : $base;
     }

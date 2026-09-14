@@ -36,6 +36,8 @@ foreach ($categorias as $c) {
     ];
 }
 ?>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+<script src="<?= asset_url('js/qrious.min.js') ?>"></script>
 <script src="<?= asset_url('js/qrcode.min.js') ?>"></script>
 
 <script>
@@ -67,7 +69,7 @@ function nuevoDocumentoForm() {
         },
         restoreQrSession(token) {
             this.qrToken = token;
-            this.qrUrl = "<?= app_url('/cargar?token=') ?>" + token;
+            this.qrUrl = "<?= app_url('/cargar?token=', true) ?>" + token;
             this.qrStatus = "loading";
             fetch("<?= app_url('/api/upload-session/status') ?>?token=" + token)
             .then(r => r.json())
@@ -125,17 +127,38 @@ function nuevoDocumentoForm() {
             const container = document.getElementById("inline_qrcode_container");
             if (!container) return;
             container.innerHTML = "";
-            if (typeof QRCode !== "undefined" && this.qrUrl) {
-                try {
+            if (!this.qrUrl) return;
+
+            try {
+                if (typeof QRious !== "undefined") {
+                    const canvas = document.createElement("canvas");
+                    container.appendChild(canvas);
+                    new QRious({
+                        element: canvas,
+                        value: this.qrUrl,
+                        size: 160,
+                        level: 'H'
+                    });
+                } else if (typeof QRCode !== "undefined") {
                     new QRCode(container, {
                         text: this.qrUrl,
-                        width: 140,
-                        height: 140
+                        width: 160,
+                        height: 160
                     });
-                } catch (e) {
-                    console.error("Error al renderizar código QR:", e);
-                    container.innerHTML = '<span class="text-xs text-danger-500">Error al renderizar QR</span>';
+                } else {
+                    const img = document.createElement("img");
+                    img.src = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(this.qrUrl);
+                    img.alt = "Código QR";
+                    img.className = "w-[160px] h-[160px] rounded-lg shadow-sm";
+                    container.appendChild(img);
                 }
+            } catch (e) {
+                console.error("Error al renderizar código QR:", e);
+                const img = document.createElement("img");
+                img.src = "https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=" + encodeURIComponent(this.qrUrl);
+                img.alt = "Código QR";
+                img.className = "w-[160px] h-[160px] rounded-lg shadow-sm";
+                container.appendChild(img);
             }
         },
         startPolling() {
