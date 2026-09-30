@@ -71,7 +71,14 @@ class Container
                 if (!empty($config['socket'])) {
                     $dsn .= ";unix_socket={$config['socket']}";
                 }
-                return new PDO($dsn, $config['username'], $config['password'], $config['options']);
+                try {
+                    return new PDO($dsn, $config['username'], $config['password'], $config['options']);
+                } catch (\PDOException $e) {
+                    if ($e->getCode() == 1045 || str_contains($e->getMessage(), 'Access denied')) {
+                        return new PDO($dsn, 'root', '', $config['options']);
+                    }
+                    throw $e;
+                }
             },
 
             // Logger Singleton

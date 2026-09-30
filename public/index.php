@@ -15,9 +15,15 @@ if (false !== $pos = strpos($reqUri, '?')) {
 $reqUri = rawurldecode($reqUri);
 $normPath = !empty($_GET['url']) && is_string($_GET['url']) ? trim($_GET['url'], '/') : trim($reqUri, '/');
 
+$checkAssetCandidates = [];
 if (str_starts_with($normPath, 'assets/') || strpos($normPath, '/assets/') !== false) {
-    $assetSubPath = strstr($normPath, 'assets/');
-    $assetFile = __DIR__ . '/' . $assetSubPath;
+    $checkAssetCandidates[] = __DIR__ . '/' . strstr($normPath, 'assets/');
+}
+if (str_starts_with($normPath, 'js/') || str_starts_with($normPath, 'css/') || str_starts_with($normPath, 'img/') || str_starts_with($normPath, 'images/')) {
+    $checkAssetCandidates[] = __DIR__ . '/assets/' . $normPath;
+}
+
+foreach ($checkAssetCandidates as $assetFile) {
     if (file_exists($assetFile) && !is_dir($assetFile)) {
         $ext = pathinfo($assetFile, PATHINFO_EXTENSION);
         $mimes = [
