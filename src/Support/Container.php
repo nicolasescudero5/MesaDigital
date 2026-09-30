@@ -90,6 +90,10 @@ class Container
 
             // Mailer
             MailerInterface::class => function (ContainerInterface $c) {
+                $socketLabsFile = __DIR__ . '/../../../portal/app/core/SocketLabsMailer.php';
+                if (file_exists($socketLabsFile)) {
+                    return new \App\Services\PortalMailerAdapter($c->get(LoggerInterface::class));
+                }
                 return new PhpMailerAdapter($c->get('config.mail'), $c->get(LoggerInterface::class));
             },
 
