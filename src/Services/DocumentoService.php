@@ -57,7 +57,7 @@ class DocumentoService
             'sede_id' => 'required|integer',
             'categoria_id' => 'required|integer',
             'tipo_documento_id' => 'required|integer',
-            'remitente' => 'required|min:2|max:200',
+            'remitente' => 'nullable|max:200',
             'asunto' => 'required|min:3|max:200',
             'descripcion' => 'required|min:5',
             'fecha_recepcion' => 'required|date',
@@ -96,13 +96,15 @@ class DocumentoService
         try {
             $codigo = $this->documentoRepository->generateNextCodigo();
 
+            $remitenteVal = !empty($data['remitente']) ? trim((string)$data['remitente']) : null;
+
             $doc = new Documento(
                 codigo: $codigo,
                 sede_id: (int)$data['sede_id'],
                 categoria_id: $categoriaId,
                 tipo_documento_id: (int)$data['tipo_documento_id'],
                 caracter_remitente_id: !empty($data['caracter_remitente_id']) ? (int)$data['caracter_remitente_id'] : null,
-                remitente: trim((string)$data['remitente']),
+                remitente: $remitenteVal,
                 asunto: trim((string)$data['asunto']),
                 descripcion: trim((string)$data['descripcion']),
                 fecha_recepcion: (string)$data['fecha_recepcion'],
@@ -279,6 +281,51 @@ class DocumentoService
             estado_nuevo: $doc->estado,
             usuario_id: (int)$usuario->id,
             detalle: "Plazo legal actualizado a: " . ($nuevoPlazo ?: 'Sin plazo')
+        ));
+
+        return $this->documentoRepository->findById($documentoId);
+    }
+
+    /**
+     * Modifica o asigna el remitente y carácter del documento
+     */
+    public function modificarRemitente(int $documentoId, ?string $nuevoRemitente, ?int $caracterRemitenteId, Usuario $usuario): Documento
+    {
+        $doc = $this->documentoRepository->findById($documentoId);
+        if (!$doc) {
+            throw new InvalidArgumentException("Documento no encontrado.");
+        }
+
+        if (!$this->documentoRepository->canUserView($usuario, $doc)) {
+            throw new InvalidArgumentException("No tenés permiso para acceder a este documento.");
+        }
+
+        if (!$usuario->isAdministrador() && !$usuario->isResponsable() && $doc->creado_por !== (int)$usuario->id) {
+            throw new InvalidArgumentException("No tenés permiso para modificar los datos de remitente de este documento.");
+        }
+
+        $remitenteLimpio = !empty($nuevoRemitente) ? trim($nuevoRemitente) : null;
+        if ($remitenteLimpio !== null && mb_strlen($remitenteLimpio) > 200) {
+            throw new InvalidArgumentException("El nombre del remitente no puede superar los 200 caracteres.");
+        }
+
+        $this->documentoRepository->updateRemitente($documentoId, $remitenteLimpio, $caracterRemitenteId, (int)$usuario->id);
+
+        $detalle = "Remitente actualizado a: " . ($remitenteLimpio ?: 'Sin remitente');
+        if ($caracterRemitenteId) {
+            $caracter = $this->caracterRemitenteRepository->findById($caracterRemitenteId);
+            if ($caracter) {
+                $detalle .= " (Carácter: {$caracter->nombre})";
+            }
+        }
+
+        $this->historialRepository->create(new DocumentoHistorial(
+            documento_id: $documentoId,
+            accion: 'Remitente_modificado',
+            estado_anterior: $doc->estado,
+            estado_nuevo: $doc->estado,
+            usuario_id: (int)$usuario->id,
+            detalle: $detalle
         ));
 
         return $this->documentoRepository->findById($documentoId);

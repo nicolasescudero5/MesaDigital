@@ -3,7 +3,7 @@ $pageTitle = $documento->codigo . ' — Ficha de Documento';
 global $container;
 $view = $container->get(\App\Support\View::class);
 
-$canManage = $user->isAdministrador() || $user->isResponsable();
+$canManage = $user->isAdministrador() || $user->isResponsable() || ($documento->creado_por === (int)$user->id);
 ?>
 
 <?= $view->partial('page-header', [
@@ -20,6 +20,7 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
     modalTomar: false,
     modalReclasificar: false,
     modalPlazo: false,
+    modalRemitente: false,
     modalResolver: false,
     modalCerrar: false,
     modalAnular: false,
@@ -52,6 +53,14 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
                     <button type="button" @click="modalReclasificar = true" class="btn-neutral text-xs h-9 inline-flex items-center gap-1.5 shadow-xs">
                         <?= icon('shuffle', 'w-3.5 h-3.5') ?>
                         <span>Reclasificar</span>
+                    </button>
+                <?php endif; ?>
+
+                <!-- Acción: Editar Remitente -->
+                <?php if (in_array($documento->estado, ['Recibido', 'En curso'], true)): ?>
+                    <button type="button" @click="modalRemitente = true" class="btn-neutral text-xs h-9 inline-flex items-center gap-1.5 shadow-xs">
+                        <?= icon('user', 'w-3.5 h-3.5') ?>
+                        <span>Editar Remitente</span>
                     </button>
                 <?php endif; ?>
 
@@ -120,10 +129,21 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
                     </div>
 
                     <div>
-                        <span class="form-label">Remitente</span>
-                        <div class="font-bold text-ink-900 dark:text-white"><?= e($documento->remitente) ?></div>
-                        <?php if ($documento->caracter_remitente_nombre): ?>
-                            <div class="text-xs text-ink-500 mt-0.5 font-medium">Carácter: <?= e($documento->caracter_remitente_nombre) ?></div>
+                        <div class="flex items-center justify-between">
+                            <span class="form-label">Remitente</span>
+                            <?php if ($documento->activo && $canManage && in_array($documento->estado, ['Recibido', 'En curso'], true)): ?>
+                                <button type="button" @click="modalRemitente = true" class="text-xs text-brand-600 hover:text-brand-700 font-semibold underline">Editar</button>
+                            <?php endif; ?>
+                        </div>
+                        <?php if ($documento->remitente): ?>
+                            <div class="font-bold text-ink-900 dark:text-white"><?= e($documento->remitente) ?></div>
+                            <?php if ($documento->caracter_remitente_nombre): ?>
+                                <div class="text-xs text-ink-500 mt-0.5 font-medium">Carácter: <?= e($documento->caracter_remitente_nombre) ?></div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <div class="text-ink-400 italic flex items-center gap-1.5">
+                                <span>Sin remitente cargado</span>
+                            </div>
                         <?php endif; ?>
                     </div>
 
@@ -365,6 +385,39 @@ $canManage = $user->isAdministrador() || $user->isResponsable();
                 <div class="flex justify-end gap-2 pt-3 border-t border-ink-100 dark:border-ink-800">
                     <button type="button" @click="modalPlazo = false" class="btn-ghost text-xs">Cancelar</button>
                     <button type="submit" class="btn-primary text-xs">Guardar Plazo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Modificar Remitente -->
+    <div x-show="modalRemitente" class="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/60 p-4" style="display: none;">
+        <div class="card max-w-md w-full p-6 shadow-modal" @click.away="modalRemitente = false">
+            <h3 class="text-lg font-bold text-ink-900 dark:text-white mb-4">Cargar / Modificar Remitente</h3>
+            <form action="<?= app_url("/documentos/{$documento->id}/remitente") ?>" method="POST" class="space-y-4">
+                <?= csrf_field() ?>
+                <div>
+                    <label class="form-label">Remitente / Empresa / Organismo</label>
+                    <input type="text" name="remitente" value="<?= e($documento->remitente) ?>" 
+                           placeholder="Ej: Juzgado Civil N° 4, Correo Argentino, Juan Pérez..." class="form-input">
+                    <p class="text-xs text-ink-400 mt-1">Identificación del emisor o empresa.</p>
+                </div>
+                <div>
+                    <label class="form-label">Carácter del Remitente</label>
+                    <select name="caracter_remitente_id" class="form-select font-medium">
+                        <option value="">Opcional / No especificado</option>
+                        <?php if (!empty($caracteres)): ?>
+                            <?php foreach ($caracteres as $car): ?>
+                                <option value="<?= $car->id ?>" <?= $documento->caracter_remitente_id == $car->id ? 'selected' : '' ?>>
+                                    <?= e($car->nombre) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-3 border-t border-ink-100 dark:border-ink-800">
+                    <button type="button" @click="modalRemitente = false" class="btn-ghost text-xs">Cancelar</button>
+                    <button type="submit" class="btn-primary text-xs">Guardar Remitente</button>
                 </div>
             </form>
         </div>

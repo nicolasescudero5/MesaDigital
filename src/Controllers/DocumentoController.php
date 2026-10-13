@@ -153,6 +153,7 @@ class DocumentoController
         $historial = $this->historialRepository->findByDocumentoId($id);
         $comentarios = $this->comentarioRepository->findByDocumentoId($id);
         $categorias = $this->categoriaRepository->findAll(true, false);
+        $caracteres = $this->caracterRemitenteRepository->findAll(true);
 
         echo $this->view->render('documentos/ficha', [
             'user' => $user,
@@ -161,6 +162,7 @@ class DocumentoController
             'historial' => $historial,
             'comentarios' => $comentarios,
             'categorias' => $categorias,
+            'caracteres' => $caracteres,
         ], 'app');
     }
 
@@ -205,6 +207,23 @@ class DocumentoController
         try {
             $this->documentoService->modificarPlazoLegal($id, $plazo, $user);
             flash('success', 'Plazo legal actualizado.');
+        } catch (\Throwable $e) {
+            flash('error', $e->getMessage());
+        }
+
+        redirect("/documentos/{$id}");
+    }
+
+    public function modificarRemitente(array $vars): void
+    {
+        $user = $this->authProvider->currentUser();
+        $id = (int)($vars['id'] ?? 0);
+        $remitente = !empty($_POST['remitente']) ? trim((string)$_POST['remitente']) : null;
+        $caracterId = !empty($_POST['caracter_remitente_id']) ? (int)$_POST['caracter_remitente_id'] : null;
+
+        try {
+            $this->documentoService->modificarRemitente($id, $remitente, $caracterId, $user);
+            flash('success', 'Datos del remitente actualizados correctamente.');
         } catch (\Throwable $e) {
             flash('error', $e->getMessage());
         }

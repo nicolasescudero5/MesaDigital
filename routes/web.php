@@ -48,6 +48,7 @@ $router->get('/documentos/{id:\d+}', [DocumentoController::class, 'show'], [Auth
 $router->post('/documentos/{id:\d+}/tomar', [DocumentoController::class, 'tomar'], [AuthMiddleware::class]);
 $router->post('/documentos/{id:\d+}/reclasificar', [DocumentoController::class, 'reclasificar'], [AuthMiddleware::class]);
 $router->post('/documentos/{id:\d+}/plazo-legal', [DocumentoController::class, 'modificarPlazo'], [AuthMiddleware::class]);
+$router->post('/documentos/{id:\d+}/remitente', [DocumentoController::class, 'modificarRemitente'], [AuthMiddleware::class]);
 $router->post('/documentos/{id:\d+}/resolver', [DocumentoController::class, 'resolver'], [AuthMiddleware::class]);
 $router->post('/documentos/{id:\d+}/cerrar', [DocumentoController::class, 'cerrar'], [AuthMiddleware::class]);
 $router->post('/documentos/{id:\d+}/anular', [DocumentoController::class, 'anular'], [AuthMiddleware::class], ['administrador']);

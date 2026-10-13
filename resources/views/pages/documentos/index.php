@@ -206,8 +206,8 @@ foreach ($documentos as $doc) {
 
                                 <!-- Remitente / Asunto -->
                                 <td class="py-3.5 px-4 max-w-xs">
-                                    <div class="font-bold text-ink-900 dark:text-ink-100 truncate" title="<?= e($doc->remitente) ?>">
-                                        <?= e($doc->remitente) ?>
+                                    <div class="font-bold text-ink-900 dark:text-ink-100 truncate" title="<?= e($doc->remitente ?? '') ?>">
+                                        <?= $doc->remitente ? e($doc->remitente) : '<span class="text-ink-400 font-normal italic">(Sin remitente)</span>' ?>
                                     </div>
                                     <div class="text-xs text-ink-500 truncate mt-0.5" title="<?= e($doc->asunto) ?>">
                                         <?= e($doc->asunto) ?>

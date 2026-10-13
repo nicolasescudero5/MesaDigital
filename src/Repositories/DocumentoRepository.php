@@ -352,6 +352,24 @@ class DocumentoRepository
         ]);
     }
 
+    public function updateRemitente(int $id, ?string $remitente, ?int $caracterRemitenteId, ?int $modificadoPor = null): bool
+    {
+        $sql = "UPDATE documentos 
+                SET remitente = :remitente, 
+                    caracter_remitente_id = :caracter_remitente_id,
+                    modificado_por = :modificado_por, 
+                    modificado_el = :modificado_el 
+                WHERE id = :id";
+        $stmt = $this->pdo->prepare($sql);
+        return $stmt->execute([
+            'id' => $id,
+            'remitente' => $remitente,
+            'caracter_remitente_id' => $caracterRemitenteId,
+            'modificado_por' => $modificadoPor,
+            'modificado_el' => date('Y-m-d H:i:s')
+        ]);
+    }
+
     public function anular(int $id, string $motivo, int $anuladoPor): bool
     {
         $sql = "UPDATE documentos 

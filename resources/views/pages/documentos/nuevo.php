@@ -439,30 +439,6 @@ function nuevoDocumentoForm() {
                     </div>
                 </div>
 
-                <!-- Remitente -->
-                <div>
-                    <label for="remitente" class="form-label">
-                        Remitente / Empresa / Organismo <span class="text-danger-500">*</span>
-                    </label>
-                    <input type="text" id="remitente" name="remitente" required value="<?= e(old('remitente')) ?>" 
-                           placeholder="Ej: Juzgado Civil N° 4, Correo Argentino..." class="form-input">
-                </div>
-
-                <!-- Carácter del Remitente -->
-                <div>
-                    <label for="caracter_remitente_id" class="form-label">
-                        Carácter del Remitente
-                    </label>
-                    <select id="caracter_remitente_id" name="caracter_remitente_id" class="form-select font-medium">
-                        <option value="">Opcional / No especificado</option>
-                        <?php foreach ($caracteres as $car): ?>
-                            <option value="<?= $car->id ?>" <?= old('caracter_remitente_id') == $car->id ? 'selected' : '' ?>>
-                                <?= e($car->nombre) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
                 <!-- Asunto -->
                 <div class="sm:col-span-2">
                     <label for="asunto" class="form-label">
@@ -482,22 +458,12 @@ function nuevoDocumentoForm() {
                 </div>
 
                 <!-- Fecha de Recepción -->
-                <div>
+                <div class="sm:col-span-2">
                     <label for="fecha_recepcion" class="form-label">
                         Fecha de Recepción <span class="text-danger-500">*</span>
                     </label>
                     <input type="date" id="fecha_recepcion" name="fecha_recepcion" required 
-                           value="<?= e(old('fecha_recepcion', date('Y-m-d'))) ?>" class="form-input font-medium">
-                </div>
-
-                <!-- Plazo Legal (Opcional) -->
-                <div>
-                    <label for="plazo_legal" class="form-label">
-                        Plazo Legal / Vencimiento
-                    </label>
-                    <input type="date" id="plazo_legal" name="plazo_legal" 
-                           value="<?= e(old('plazo_legal')) ?>" class="form-input font-medium">
-                    <p class="text-xs text-ink-500 dark:text-ink-400 mt-1">Si se completa, disparará alertas a 3 y 1 día antes.</p>
+                           value="<?= e(old('fecha_recepcion', date('Y-m-d'))) ?>" class="form-input font-medium max-w-sm">
                 </div>
 
             </div>
