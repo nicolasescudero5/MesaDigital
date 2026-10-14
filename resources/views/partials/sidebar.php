@@ -123,14 +123,11 @@ function is_active(string $path, string $currentPath): bool {
                 <span class="hidden dark:inline text-warning-400"><?= icon('sun', 'w-4 h-4') ?></span>
             </button>
 
-            <!-- Cerrar Sesión (Siempre POST con CSRF § 6.2) -->
-            <form action="<?= app_url('logout') ?>" method="POST" class="inline">
-                <?= csrf_field() ?>
-                <button type="submit" class="inline-flex items-center gap-1.5 text-xs font-semibold text-danger-600 hover:text-danger-700 p-1.5 rounded hover:bg-danger-50 dark:hover:bg-danger-950/30 transition-colors">
-                    <?= icon('log-out', 'w-4 h-4 text-danger-500') ?>
-                    <span>Cerrar sesión</span>
-                </button>
-            </form>
+            <!-- Volver al Portal -->
+            <a href="<?= portal_url() ?>" class="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-600 dark:text-ink-300 hover:text-brand-600 dark:hover:text-brand-400 p-1.5 rounded hover:bg-ink-100 dark:hover:bg-ink-800 transition-colors" title="Volver al Portal">
+                <?= icon('arrow-left', 'w-4 h-4 text-ink-500 dark:text-ink-400') ?>
+                <span>Volver al Portal</span>
+            </a>
         </div>
     </div>
 </aside>

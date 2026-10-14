@@ -79,33 +79,45 @@ $view = $container->get(\App\Support\View::class);
     <!-- Desglose por Sede -->
     <div class="card lg:col-span-2 flex flex-col">
         <div class="flex items-center justify-between pb-4 border-b border-ink-100 dark:border-ink-800 mb-4">
-            <h2 class="font-display font-bold text-base text-ink-900 dark:text-white">Distribución por Sede</h2>
-            <span class="text-xs text-ink-400 font-semibold">Total Sedes: <?= count($desgloseSedes) ?></span>
+            <h2 class="font-display font-bold text-base text-ink-900 dark:text-white">
+                <?= ($user && ($user->isRecepcion() || $user->isDireccion())) ? 'Mi Sede' : 'Distribución por Sede' ?>
+            </h2>
+            <span class="text-xs text-ink-400 font-semibold">
+                <?= ($user && ($user->isRecepcion() || $user->isDireccion())) 
+                    ? (!empty($desgloseSedes) ? e($desgloseSedes[0]['nombre']) : 'Sin sede asignada') 
+                    : 'Total Sedes: ' . count($desgloseSedes) ?>
+            </span>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[360px] pr-1">
-            <?php foreach ($desgloseSedes as $sede): ?>
-                <div class="p-4 rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 flex flex-col justify-between shadow-xs">
-                    <div class="flex items-center gap-2 mb-3">
-                        <div class="w-3.5 h-3.5 rounded-full shadow-xs" style="background-color: <?= e($sede['color_primario']) ?>"></div>
-                        <h3 class="font-bold text-sm text-ink-900 dark:text-white truncate"><?= e($sede['nombre']) ?></h3>
+        <?php if (empty($desgloseSedes)): ?>
+            <div class="p-6 text-center text-xs text-ink-400">
+                No hay sedes disponibles para mostrar según tu alcance.
+            </div>
+        <?php else: ?>
+            <div class="grid grid-cols-1 <?= count($desgloseSedes) > 1 ? 'sm:grid-cols-2' : '' ?> gap-3 overflow-y-auto max-h-[360px] pr-1">
+                <?php foreach ($desgloseSedes as $sede): ?>
+                    <div class="p-4 rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 flex flex-col justify-between shadow-xs">
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="w-3.5 h-3.5 rounded-full shadow-xs" style="background-color: <?= e($sede['color_primario']) ?>"></div>
+                            <h3 class="font-bold text-sm text-ink-900 dark:text-white truncate"><?= e($sede['nombre']) ?></h3>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs pt-2 border-t border-ink-100 dark:border-ink-800">
+                            <div>
+                                <div class="text-ink-500 text-[10px] uppercase font-bold">Recibidos</div>
+                                <div class="font-bold text-brand-600 dark:text-brand-400 mt-0.5"><?= $sede['recibidos'] ?></div>
+                            </div>
+                            <div>
+                                <div class="text-ink-500 text-[10px] uppercase font-bold">En curso</div>
+                                <div class="font-bold text-warning-600 dark:text-warning-400 mt-0.5"><?= $sede['en_curso'] ?></div>
+                            </div>
+                            <div>
+                                <div class="text-ink-500 text-[10px] uppercase font-bold">Resueltos</div>
+                                <div class="font-bold text-success-600 dark:text-success-400 mt-0.5"><?= $sede['resueltos'] ?></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="grid grid-cols-3 gap-2 text-center text-xs pt-2 border-t border-ink-100 dark:border-ink-800">
-                        <div>
-                            <div class="text-ink-500 text-[10px] uppercase font-bold">Recibidos</div>
-                            <div class="font-bold text-brand-600 dark:text-brand-400 mt-0.5"><?= $sede['recibidos'] ?></div>
-                        </div>
-                        <div>
-                            <div class="text-ink-500 text-[10px] uppercase font-bold">En curso</div>
-                            <div class="font-bold text-warning-600 dark:text-warning-400 mt-0.5"><?= $sede['en_curso'] ?></div>
-                        </div>
-                        <div>
-                            <div class="text-ink-500 text-[10px] uppercase font-bold">Resueltos</div>
-                            <div class="font-bold text-success-600 dark:text-success-400 mt-0.5"><?= $sede['resueltos'] ?></div>
-                        </div>
-                    </div>
-                </div>
-            <?php endforeach; ?>
-        </div>
+                <?php endforeach; ?>
+            </div>
+        <?php endif; ?>
     </div>
 
 </div>

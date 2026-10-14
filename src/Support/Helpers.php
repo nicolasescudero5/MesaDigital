@@ -43,7 +43,7 @@ if (!function_exists('csrf_field')) {
      */
     function csrf_field(): string
     {
-        return '<input type="hidden" name="_csrf_token" value="' . e(csrf_token()) . '">';
+        return '<input type="hidden" name="_csrf_token" value="' . htmlspecialchars(csrf_token(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">';
     }
 }
 
@@ -105,6 +105,46 @@ if (!function_exists('app_url')) {
 
         $path = ltrim($path, '/');
         return $path ? "{$base}/{$path}" : $base;
+    }
+}
+
+if (!function_exists('portal_url')) {
+    /**
+     * Retorna la URL del Portal institucional del tenant actual
+     */
+    function portal_url(string $path = ''): string
+    {
+        $tenantSubdomain = '';
+        if (defined('RESOLVED_SUBDOMAIN') && RESOLVED_SUBDOMAIN) {
+            $tenantSubdomain = RESOLVED_SUBDOMAIN;
+        } elseif (class_exists('\TenantContext') && \TenantContext::hasCurrentTenant()) {
+            $tenantSubdomain = \TenantContext::getCurrentTenant()->subdomain;
+        } elseif (!empty($_SESSION['user_tenant'])) {
+            $tenantSubdomain = $_SESSION['user_tenant'];
+        } elseif (defined('URL_BASE') && URL_BASE !== '') {
+            $parts = explode('/', trim(URL_BASE, '/'));
+            if (count($parts) >= 2 && end($parts) === 'mesa') {
+                $tenantSubdomain = $parts[count($parts) - 2];
+            }
+        }
+
+        $globalRoot = defined('URLROOT_GLOBAL') && URLROOT_GLOBAL !== '' ? URLROOT_GLOBAL : '';
+        if ($globalRoot === '') {
+            $reqUri = $_SERVER['REQUEST_URI'] ?? '/';
+            if (str_starts_with($reqUri, '/nuevo_portal')) {
+                $globalRoot = '/nuevo_portal';
+            } else {
+                $globalRoot = '';
+            }
+        }
+
+        $base = rtrim($globalRoot, '/');
+        if ($tenantSubdomain !== '') {
+            $base .= '/' . trim($tenantSubdomain, '/');
+        }
+
+        $path = ltrim($path, '/');
+        return $path ? "{$base}/{$path}" : ($base ? "{$base}/" : '/');
     }
 }
 
@@ -195,7 +235,7 @@ if (!function_exists('render_status_pill')) {
             'En curso' => '<span class="pill pill-en-curso"><span class="pill-dot"></span>En curso</span>',
             'Resuelto' => '<span class="pill pill-resuelto"><span class="pill-dot"></span>Resuelto</span>',
             'Cerrado'  => '<span class="pill pill-cerrado">Cerrado</span>',
-            default    => '<span class="pill pill-cerrado">' . e($estado) . '</span>',
+            default    => '<span class="pill pill-cerrado">' . htmlspecialchars($estado, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</span>',
         };
     }
 }

@@ -158,9 +158,9 @@ foreach ($usuarios as $u) {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div>
-                    <label class="form-label">Contraseña (Entorno Local)</label>
-                    <input type="password" name="password" class="form-input" placeholder="••••••••">
+                <div class="p-3 bg-brand-50/60 dark:bg-brand-950/20 border border-brand-100 dark:border-brand-900/40 rounded-lg text-xs text-brand-700 dark:text-brand-300 flex items-start gap-2">
+                    <?= icon('info', 'w-4 h-4 text-brand-500 shrink-0 mt-0.5') ?>
+                    <span>Autenticación unificada: el usuario iniciará sesión a través del Portal con su cuenta institucional de Google. No requiere contraseña local.</span>
                 </div>
                 <div class="flex justify-end gap-2 pt-3 border-t border-ink-100 dark:border-ink-800">
                     <button type="button" @click="modalNew = false" class="btn-ghost text-xs font-semibold">Cancelar</button>
@@ -208,9 +208,9 @@ foreach ($usuarios as $u) {
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div>
-                    <label class="form-label">Nueva Contraseña (Opcional)</label>
-                    <input type="password" name="password" class="form-input" placeholder="Dejar en blanco para no cambiar">
+                <div class="p-3 bg-brand-50/60 dark:bg-brand-950/20 border border-brand-100 dark:border-brand-900/40 rounded-lg text-xs text-brand-700 dark:text-brand-300 flex items-start gap-2">
+                    <?= icon('info', 'w-4 h-4 text-brand-500 shrink-0 mt-0.5') ?>
+                    <span>Autenticación unificada: el acceso se realiza mediante la cuenta de Google vinculada en el Portal.</span>
                 </div>
                 <div>
                     <label class="flex items-center gap-2 text-xs font-semibold text-ink-700 dark:text-ink-300 cursor-pointer">

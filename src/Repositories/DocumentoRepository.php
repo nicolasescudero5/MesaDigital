@@ -424,42 +424,100 @@ class DocumentoRepository
     }
 
     /**
-     * Desglose por sede para dashboard
+     * Desglose por sede para dashboard respetando el alcance del usuario (§ 4.1)
      */
     public function getBreakdownBySede(Usuario $usuario): array
     {
-        [$whereClauses, $params] = $this->buildScopeAndFilters($usuario, []);
-        $whereSql = !empty($whereClauses) ? ' WHERE ' . implode(' AND ', $whereClauses) : '';
+        $sedeConditions = ['s.activo = 1'];
+        $docConditions = ['d.activo = 1'];
+        $params = [];
+
+        if ($usuario->isAdministrador() || $usuario->isSupervision()) {
+            // Ve todas las sedes y todos los documentos activos
+        } elseif ($usuario->isRecepcion() || $usuario->isDireccion()) {
+            // Solo puede ver la sede que tiene asociada
+            $sedeConditions[] = 's.id = :scope_sede_id';
+            $params['scope_sede_id'] = $usuario->sede_id ?? 0;
+        } elseif ($usuario->isResponsable()) {
+            $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
+            if (empty($categoriasAsignadas)) {
+                $docConditions[] = '1 = 0';
+            } else {
+                $placeholders = [];
+                foreach ($categoriasAsignadas as $idx => $catId) {
+                    $key = "cat_scope_{$idx}";
+                    $placeholders[] = ":{$key}";
+                    $params[$key] = $catId;
+                }
+                $docConditions[] = 'd.categoria_id IN (' . implode(',', $placeholders) . ')';
+            }
+        }
+
+        $sedeWhereSql = 'WHERE ' . implode(' AND ', $sedeConditions);
+        $docJoinSql = 'AND ' . implode(' AND ', $docConditions);
 
         $sql = "SELECT s.id, s.nombre, s.color_primario, COUNT(d.id) AS total_documentos,
-                       SUM(CASE WHEN d.estado = 'Recibido' THEN 1 ELSE 0 END) AS recibidos,
-                       SUM(CASE WHEN d.estado = 'En curso' THEN 1 ELSE 0 END) AS en_curso,
-                       SUM(CASE WHEN d.estado = 'Resuelto' THEN 1 ELSE 0 END) AS resueltos
+                       COALESCE(SUM(CASE WHEN d.estado = 'Recibido' THEN 1 ELSE 0 END), 0) AS recibidos,
+                       COALESCE(SUM(CASE WHEN d.estado = 'En curso' THEN 1 ELSE 0 END), 0) AS en_curso,
+                       COALESCE(SUM(CASE WHEN d.estado = 'Resuelto' THEN 1 ELSE 0 END), 0) AS resueltos
                 FROM sedes s
-                LEFT JOIN documentos d ON d.sede_id = s.id AND d.activo = 1
+                LEFT JOIN documentos d ON d.sede_id = s.id {$docJoinSql}
+                {$sedeWhereSql}
                 GROUP BY s.id, s.nombre, s.color_primario
                 ORDER BY total_documentos DESC";
 
-        $stmt = $this->pdo->query($sql);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll() ?: [];
     }
 
     /**
-     * Desglose por categoría para dashboard
+     * Desglose por categoría para dashboard respetando el alcance del usuario (§ 4.1)
      */
     public function getBreakdownByCategoria(Usuario $usuario): array
     {
+        $catConditions = ['c.activo = 1'];
+        $docConditions = ['d.activo = 1'];
+        $params = [];
+
+        if ($usuario->isAdministrador() || $usuario->isSupervision()) {
+            // Ve todo el sistema
+        } elseif ($usuario->isRecepcion() || $usuario->isDireccion()) {
+            // Solo documentos de su sede
+            $docConditions[] = 'd.sede_id = :scope_sede_id';
+            $params['scope_sede_id'] = $usuario->sede_id ?? 0;
+        } elseif ($usuario->isResponsable()) {
+            $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
+            if (empty($categoriasAsignadas)) {
+                $catConditions[] = '1 = 0';
+                $docConditions[] = '1 = 0';
+            } else {
+                $placeholders = [];
+                foreach ($categoriasAsignadas as $idx => $catId) {
+                    $key = "cat_scope_{$idx}";
+                    $placeholders[] = ":{$key}";
+                    $params[$key] = $catId;
+                }
+                $catConditions[] = 'c.id IN (' . implode(',', $placeholders) . ')';
+                $docConditions[] = 'd.categoria_id IN (' . implode(',', $placeholders) . ')';
+            }
+        }
+
+        $catWhereSql = 'WHERE ' . implode(' AND ', $catConditions);
+        $docJoinSql = 'AND ' . implode(' AND ', $docConditions);
+
         $sql = "SELECT c.id, c.nombre, COUNT(d.id) AS total_documentos,
-                       SUM(CASE WHEN d.estado = 'Recibido' THEN 1 ELSE 0 END) AS recibidos,
-                       SUM(CASE WHEN d.estado = 'En curso' THEN 1 ELSE 0 END) AS en_curso,
-                       SUM(CASE WHEN d.estado = 'Resuelto' THEN 1 ELSE 0 END) AS resueltos
+                       COALESCE(SUM(CASE WHEN d.estado = 'Recibido' THEN 1 ELSE 0 END), 0) AS recibidos,
+                       COALESCE(SUM(CASE WHEN d.estado = 'En curso' THEN 1 ELSE 0 END), 0) AS en_curso,
+                       COALESCE(SUM(CASE WHEN d.estado = 'Resuelto' THEN 1 ELSE 0 END), 0) AS resueltos
                 FROM categorias c
-                LEFT JOIN documentos d ON d.categoria_id = c.id AND d.activo = 1
-                WHERE c.activo = 1
+                LEFT JOIN documentos d ON d.categoria_id = c.id {$docJoinSql}
+                {$catWhereSql}
                 GROUP BY c.id, c.nombre
                 ORDER BY total_documentos DESC";
 
-        $stmt = $this->pdo->query($sql);
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll() ?: [];
     }
 
