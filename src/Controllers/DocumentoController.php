@@ -59,6 +59,9 @@ class DocumentoController
         $totalPages = max(1, (int)ceil($result['total'] / $limit));
 
         $sedes = $this->sedeRepository->findAll(true);
+        if ($user && ($user->isRecepcion() || $user->isDireccion())) {
+            $sedes = array_values(array_filter($sedes, fn($s) => $user->canAccessSede((int)$s->id)));
+        }
         $categorias = $this->categoriaRepository->findAll(true, false);
         $tipos = $this->tipoDocumentoRepository->findAll(true);
 
@@ -81,6 +84,9 @@ class DocumentoController
         $user = $this->authProvider->currentUser();
 
         $sedes = $this->sedeRepository->findAll(true);
+        if ($user && ($user->isRecepcion() || $user->isDireccion())) {
+            $sedes = array_values(array_filter($sedes, fn($s) => $user->canAccessSede((int)$s->id)));
+        }
         $categorias = $this->categoriaRepository->findAll(true, true);
         $tipos = $this->tipoDocumentoRepository->findAll(true);
         $caracteres = $this->caracterRemitenteRepository->findAll(true);

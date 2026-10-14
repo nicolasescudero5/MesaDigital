@@ -76,7 +76,7 @@ foreach ($caracteres as $c) {
                                     <?= icon('edit-3', 'w-4 h-4 text-brand-600') ?>
                                 </button>
                                 <?php if ($c->activo): ?>
-                                    <form action="/caracteres-remitente/<?= $c->id ?>/desactivar" method="POST" class="inline" onsubmit="return confirm('¿Dar de baja este carácter?')">
+                                    <form action="<?= app_url('/caracteres-remitente/' . $c->id . '/desactivar') ?>" method="POST" class="inline" onsubmit="return confirm('¿Dar de baja este carácter?')">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="inline-flex items-center justify-center p-1.5 rounded-lg text-danger-600 bg-danger-50 hover:bg-danger-100 dark:bg-danger-950/40 dark:text-danger-300 transition-colors shadow-xs" title="Dar de baja">
                                             <?= icon('trash-2', 'w-4 h-4 text-danger-600') ?>
@@ -101,7 +101,7 @@ foreach ($caracteres as $c) {
             </button>
         </div>
 
-        <form :action="editingCar ? '/caracteres-remitente/' + editingCar.id + '/actualizar' : '/caracteres-remitente'" method="POST" class="space-y-4">
+        <form :action="editingCar ? '<?= app_url('/caracteres-remitente') ?>/' + editingCar.id + '/actualizar' : '<?= app_url('/caracteres-remitente') ?>'" method="POST" class="space-y-4">
             <?= csrf_field() ?>
 
             <div>

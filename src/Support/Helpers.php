@@ -94,7 +94,12 @@ if (!function_exists('app_url')) {
         if (defined('URL_BASE') && URL_BASE !== '') {
             $base = rtrim(URL_BASE, '/');
         } else {
-            $base = rtrim($_ENV['APP_URL'] ?? 'http://localhost:8080', '/');
+            $tenant = defined('RESOLVED_SUBDOMAIN') && RESOLVED_SUBDOMAIN ? (string)RESOLVED_SUBDOMAIN : ($_SESSION['user_tenant'] ?? '');
+            if ($tenant !== '') {
+                $base = '/' . trim($tenant, '/') . '/mesa';
+            } else {
+                $base = rtrim($_ENV['APP_URL'] ?? 'http://localhost:8080', '/');
+            }
         }
 
         if ($absolute && !str_starts_with($base, 'http://') && !str_starts_with($base, 'https://')) {
@@ -160,13 +165,23 @@ if (!function_exists('redirect')) {
     }
 }
 
+if (!function_exists('mesa_asset_url')) {
+    /**
+     * Retorna la URL de un asset estático para Mesa Digital
+     */
+    function mesa_asset_url(string $path): string
+    {
+        return app_url('assets/' . ltrim($path, '/'));
+    }
+}
+
 if (!function_exists('asset_url')) {
     /**
      * Retorna la URL de un asset estático
      */
     function asset_url(string $path): string
     {
-        return app_url('assets/' . ltrim($path, '/'));
+        return mesa_asset_url($path);
     }
 }
 

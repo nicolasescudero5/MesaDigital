@@ -37,8 +37,8 @@ foreach ($categorias as $c) {
 }
 ?>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
-<script src="<?= asset_url('js/qrious.min.js') ?>"></script>
-<script src="<?= asset_url('js/qrcode.min.js') ?>"></script>
+<script src="<?= mesa_asset_url('js/qrious.min.js') ?>"></script>
+<script src="<?= mesa_asset_url('js/qrcode.min.js') ?>"></script>
 
 <script>
 function nuevoDocumentoForm() {
@@ -346,14 +346,18 @@ function nuevoDocumentoForm() {
                     <label for="sede_id" class="form-label">
                         Sede de Recepción <span class="text-danger-500">*</span>
                     </label>
-                    <?php if ($user->isRecepcion()): ?>
+                    <?php 
+                        $userSedesIds = $user ? $user->getSedesIds() : [];
+                        $isSingleSedeUser = ($user && ($user->isRecepcion() || $user->isDireccion()) && count($userSedesIds) <= 1);
+                    ?>
+                    <?php if ($isSingleSedeUser): ?>
                         <input type="hidden" name="sede_id" value="<?= $user->sede_id ?>">
                         <input type="text" disabled class="form-input bg-ink-100 dark:bg-ink-800 font-bold text-ink-900 dark:text-white" value="<?= e($user->sede_nombre) ?>">
                     <?php else: ?>
                         <select id="sede_id" name="sede_id" x-model="sedeId" @change="recalculateDerivation" required class="form-select font-medium">
                             <option value="">Seleccionar sede...</option>
                             <?php foreach ($sedes as $s): ?>
-                                <option value="<?= $s->id ?>" <?= old('sede_id') == $s->id ? 'selected' : '' ?>>
+                                <option value="<?= $s->id ?>" <?= old('sede_id', (count($userSedesIds) === 1 ? $user->sede_id : '')) == $s->id ? 'selected' : '' ?>>
                                     <?= e($s->nombre) ?>
                                 </option>
                             <?php endforeach; ?>

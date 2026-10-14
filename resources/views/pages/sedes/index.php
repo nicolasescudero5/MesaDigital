@@ -77,7 +77,7 @@ foreach ($sedes as $s) {
                                     <?= icon('edit-3', 'w-4 h-4 text-brand-600') ?>
                                 </button>
                                 <?php if ($s->activo): ?>
-                                    <form action="/sedes/<?= $s->id ?>/desactivar" method="POST" class="inline" onsubmit="return confirm('¿Dar de baja esta sede?')">
+                                    <form action="<?= app_url('/sedes/' . $s->id . '/desactivar') ?>" method="POST" class="inline" onsubmit="return confirm('¿Dar de baja esta sede?')">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="inline-flex items-center justify-center p-1.5 rounded-lg text-danger-600 bg-danger-50 hover:bg-danger-100 dark:bg-danger-950/40 dark:text-danger-300 transition-colors shadow-xs" title="Dar de baja">
                                             <?= icon('trash-2', 'w-4 h-4 text-danger-600') ?>
@@ -102,7 +102,7 @@ foreach ($sedes as $s) {
             </button>
         </div>
 
-        <form :action="editingSede ? '/sedes/' + editingSede.id + '/actualizar' : '/sedes'" method="POST" class="space-y-4">
+        <form :action="editingSede ? '<?= app_url('/sedes') ?>/' + editingSede.id + '/actualizar' : '<?= app_url('/sedes') ?>'" method="POST" class="space-y-4">
             <?= csrf_field() ?>
 
             <div>

@@ -68,8 +68,8 @@ class DocumentoService
             throw new InvalidArgumentException($validator->firstError() ?? 'Datos de documento inválidos.');
         }
 
-        // Si el usuario es Recepción o Dirección, validar que la sede coincida con su sede asignada
-        if (($creador->isRecepcion() || $creador->isDireccion()) && (int)$data['sede_id'] !== $creador->sede_id) {
+        // Si el usuario es Recepción o Dirección, validar que la sede esté entre sus sedes asignadas
+        if (($creador->isRecepcion() || $creador->isDireccion()) && !$creador->canAccessSede((int)$data['sede_id'])) {
             throw new InvalidArgumentException("No tenés permiso para crear documentos en otra sede.");
         }
 

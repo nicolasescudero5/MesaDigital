@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>419 — Sesión Expirada | Mesa Digital</title>
-    <link rel="stylesheet" href="<?= asset_url('css/app.css') ?>">
+    <link rel="stylesheet" href="<?= mesa_asset_url('css/app.css') ?>">
 </head>
 <body class="h-full flex items-center justify-center p-4">
     <div class="card max-w-md w-full text-center p-8 bg-white dark:bg-ink-900 shadow-modal border border-ink-200 dark:border-ink-800 rounded-xl">

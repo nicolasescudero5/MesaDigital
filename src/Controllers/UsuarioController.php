@@ -38,7 +38,11 @@ class UsuarioController
         $nombre = trim((string)($_POST['nombre'] ?? ''));
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
         $rol = (string)($_POST['rol'] ?? 'recepcion_sede');
-        $sedeId = !empty($_POST['sede_id']) ? (int)$_POST['sede_id'] : null;
+        $sedesIds = isset($_POST['sedes_ids']) ? array_values(array_unique(array_filter(array_map('intval', (array)$_POST['sedes_ids'])))) : [];
+        if (empty($sedesIds) && !empty($_POST['sede_id'])) {
+            $sedesIds = [(int)$_POST['sede_id']];
+        }
+        $sedeId = !empty($sedesIds) ? $sedesIds[0] : null;
         $password = (string)($_POST['password'] ?? '');
 
         if (empty($nombre) || empty($email)) {
@@ -46,9 +50,9 @@ class UsuarioController
             redirect('/usuarios');
         }
 
-        // Si el rol es recepcion_sede o direccion_sede, sede_id es obligatorio (§ 4.1 y § 5.2)
-        if (in_array($rol, ['recepcion_sede', 'direccion_sede'], true) && !$sedeId) {
-            flash('error', 'Para los roles de Recepción y Dirección de Sede es obligatorio asignar una sede.');
+        // Si el rol es recepcion_sede o direccion_sede, es obligatorio asignar al menos una sede (§ 4.1 y § 5.2)
+        if (in_array($rol, ['recepcion_sede', 'direccion_sede'], true) && empty($sedesIds)) {
+            flash('error', 'Para los roles de Recepción y Dirección de Sede es obligatorio asignar al menos una sede.');
             redirect('/usuarios');
         }
 
@@ -68,9 +72,10 @@ class UsuarioController
                 sede_id: $sedeId,
                 password_hash: $passwordHash,
                 activo: true,
-                creado_por: (int)$user->id
+                creado_por: (int)$user->id,
+                sedes_ids: $sedesIds
             );
-            $this->usuarioRepository->create($nuevo);
+            $this->usuarioRepository->create($nuevo, $sedesIds);
             flash('success', "Usuario '{$nombre}' dado de alta exitosamente.");
         } catch (\Throwable $e) {
             flash('error', 'Error al crear usuario: ' . $e->getMessage());
@@ -86,7 +91,11 @@ class UsuarioController
         $nombre = trim((string)($_POST['nombre'] ?? ''));
         $email = strtolower(trim((string)($_POST['email'] ?? '')));
         $rol = (string)($_POST['rol'] ?? 'recepcion_sede');
-        $sedeId = !empty($_POST['sede_id']) ? (int)$_POST['sede_id'] : null;
+        $sedesIds = isset($_POST['sedes_ids']) ? array_values(array_unique(array_filter(array_map('intval', (array)$_POST['sedes_ids'])))) : [];
+        if (empty($sedesIds) && !empty($_POST['sede_id'])) {
+            $sedesIds = [(int)$_POST['sede_id']];
+        }
+        $sedeId = !empty($sedesIds) ? $sedesIds[0] : null;
         $activo = !empty($_POST['activo']);
         $password = (string)($_POST['password'] ?? '');
 
@@ -96,8 +105,8 @@ class UsuarioController
             redirect('/usuarios');
         }
 
-        if (in_array($rol, ['recepcion_sede', 'direccion_sede'], true) && !$sedeId) {
-            flash('error', 'Para los roles de Recepción y Dirección de Sede es obligatorio asignar una sede.');
+        if (in_array($rol, ['recepcion_sede', 'direccion_sede'], true) && empty($sedesIds)) {
+            flash('error', 'Para los roles de Recepción y Dirección de Sede es obligatorio asignar al menos una sede.');
             redirect('/usuarios');
         }
 
@@ -105,11 +114,12 @@ class UsuarioController
         $usuario->email = $email;
         $usuario->rol = $rol;
         $usuario->sede_id = $sedeId;
+        $usuario->sedes_ids = $sedesIds;
         $usuario->activo = $activo;
         $usuario->modificado_por = (int)$user->id;
 
         try {
-            $this->usuarioRepository->update($usuario);
+            $this->usuarioRepository->update($usuario, $sedesIds);
 
             if (!empty($password)) {
                 $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);

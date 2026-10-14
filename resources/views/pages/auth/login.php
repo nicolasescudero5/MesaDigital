@@ -30,7 +30,7 @@
     <?php endif; ?>
 
     <!-- Formulario de Login Estándar -->
-    <form action="/login" method="POST" class="space-y-4">
+    <form action="<?= app_url('/login') ?>" method="POST" class="space-y-4">
         <?= csrf_field() ?>
         
         <div>
@@ -63,7 +63,7 @@
                 Seleccioná un perfil sembrado para ingresar instantáneamente con su alcance y permisos correspondientes:
             </p>
 
-            <form action="/login/simulado" method="POST" class="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
+            <form action="<?= app_url('/login/simulado') ?>" method="POST" class="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
                 <?= csrf_field() ?>
                 <?php foreach ($usuariosSembrados as $u): ?>
                     <button type="submit" name="user_id" value="<?= $u->id ?>" 

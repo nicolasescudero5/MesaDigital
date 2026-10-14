@@ -61,11 +61,20 @@ if (php_sapi_name() === 'cli-server') {
 // Iniciar buffering de salida para inyectar URL_BASE a enlaces, scripts, imágenes y form actions
 ob_start(function($buffer) {
     if (defined('URL_BASE') && URL_BASE !== '') {
-        $pattern = '/(href|src|action)="\/((?:assets|documentos|dashboard|sedes|categorias|tipos-documento|caracteres-remitente|usuarios|reportes|logout|login|cargar|health)(?:[\/?"#][^"]*)?|[\?#]?)"/i';
+        $routes = 'assets|documentos|dashboard|sedes|categorias|tipos-documento|caracteres-remitente|usuarios|reportes|logout|login|cargar|health';
+        // Enlaces y forms tradicionales (href="...", src="...", action="...")
+        $pattern = '/(href|src|action)="\/((?:' . $routes . ')(?:[\/?"#][^"]*)?|[\?#]?)"/i';
         $buffer = preg_replace_callback($pattern, function($matches) {
             $attribute = $matches[1];
             $path = $matches[2];
             return $attribute . '="' . URL_BASE . '/' . ltrim($path, '/') . '"';
+        }, $buffer);
+
+        // Expresiones de Alpine.js en atributos (:action="'/...", :href="'/...", etc.)
+        $patternAlpine = '/\'\/((?:' . $routes . ')(?:[\/?"#][^\']*)?)\'/i';
+        $buffer = preg_replace_callback($patternAlpine, function($matches) {
+            $path = $matches[1];
+            return '\'' . URL_BASE . '/' . ltrim($path, '/') . '\'';
         }, $buffer);
     }
     return $buffer;
@@ -188,6 +197,12 @@ $urlBase = '';
 $posMesa = strpos(strtolower($uri), '/mesa');
 if ($posMesa !== false) {
     $urlBase = substr($uri, 0, $posMesa + 5);
+} elseif (defined('RESOLVED_SUBDOMAIN') && RESOLVED_SUBDOMAIN !== null && RESOLVED_SUBDOMAIN !== '') {
+    $urlBase = '/' . trim((string)RESOLVED_SUBDOMAIN, '/') . '/mesa';
+} elseif (class_exists('\TenantContext') && \TenantContext::hasCurrentTenant()) {
+    $urlBase = '/' . trim(\TenantContext::getCurrentTenant()->subdomain, '/') . '/mesa';
+} elseif (!empty($_SESSION['user_tenant'])) {
+    $urlBase = '/' . trim((string)$_SESSION['user_tenant'], '/') . '/mesa';
 }
 $urlBase = rtrim($urlBase, '/');
 if (!defined('URL_BASE')) {

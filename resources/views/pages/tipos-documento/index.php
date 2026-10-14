@@ -90,7 +90,7 @@ foreach ($tipos as $t) {
                                     <?= icon('edit-3', 'w-4 h-4 text-brand-600') ?>
                                 </button>
                                 <?php if ($t->activo): ?>
-                                    <form action="/tipos-documento/<?= $t->id ?>/desactivar" method="POST" class="inline" onsubmit="return confirm('¿Dar de baja este tipo de documento?')">
+                                    <form action="<?= app_url('/tipos-documento/' . $t->id . '/desactivar') ?>" method="POST" class="inline" onsubmit="return confirm('¿Dar de baja este tipo de documento?')">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="inline-flex items-center justify-center p-1.5 rounded-lg text-danger-600 bg-danger-50 hover:bg-danger-100 dark:bg-danger-950/40 dark:text-danger-300 transition-colors shadow-xs" title="Dar de baja">
                                             <?= icon('trash-2', 'w-4 h-4 text-danger-600') ?>
@@ -115,7 +115,7 @@ foreach ($tipos as $t) {
             </button>
         </div>
 
-        <form :action="editingTipo ? '/tipos-documento/' + editingTipo.id + '/actualizar' : '/tipos-documento'" method="POST" class="space-y-4">
+        <form :action="editingTipo ? '<?= app_url('/tipos-documento') ?>/' + editingTipo.id + '/actualizar' : '<?= app_url('/tipos-documento') ?>'" method="POST" class="space-y-4">
             <?= csrf_field() ?>
 
             <div>

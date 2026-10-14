@@ -89,11 +89,11 @@ foreach ($documentos as $doc) {
             </div>
 
             <!-- Filtro Sede -->
-            <?php if ($user->isAdministrador() || $user->isSupervision() || $user->isResponsable()): ?>
+            <?php if ($user->isAdministrador() || $user->isSupervision() || $user->isResponsable() || count($user->getSedesIds()) > 1): ?>
                 <div>
                     <label for="sede_id" class="form-label">Sede</label>
                     <select id="sede_id" name="sede_id" class="form-select">
-                        <option value="">Todas las sedes</option>
+                        <option value=""><?= ($user->isRecepcion() || $user->isDireccion()) ? 'Todas mis sedes' : 'Todas las sedes' ?></option>
                         <?php foreach ($sedes as $s): ?>
                             <option value="<?= $s->id ?>" <?= ($filters['sede_id'] ?? '') == $s->id ? 'selected' : '' ?>>
                                 <?= e($s->nombre) ?>

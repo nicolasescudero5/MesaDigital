@@ -124,6 +124,13 @@ abstract class TestCase extends BaseTestCase
                 modificado_por INTEGER NULL
             );
 
+            CREATE TABLE usuario_sedes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL,
+                sede_id INTEGER NOT NULL,
+                creado_el TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE categoria_responsables (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 categoria_id INTEGER NOT NULL,
@@ -254,6 +261,13 @@ abstract class TestCase extends BaseTestCase
             (4, 'Dirección Benavidez', 'direccion.benavidez@reditinere.com', 'direccion_sede', 1, '{$pass}', 1),
             (5, 'Laura Legales', 'legales@reditinere.com', 'responsable_categoria', NULL, '{$pass}', 1),
             (6, 'Supervisión', 'supervision@reditinere.com', 'supervision_general', NULL, '{$pass}', 1);
+        ");
+
+        $this->pdo->exec("
+            INSERT INTO usuario_sedes (usuario_id, sede_id) VALUES
+            (2, 1),
+            (3, 2),
+            (4, 1);
         ");
 
         // 5. Categoria Responsables

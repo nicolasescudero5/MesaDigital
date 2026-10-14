@@ -163,7 +163,7 @@ foreach ($categorias as $cat) {
                                 </button>
 
                                 <?php if ($cat->activo && !$cat->es_reserva): ?>
-                                    <form action="/categorias/<?= $cat->id ?>/desactivar" method="POST" class="inline" onsubmit="return confirm('¿Dar de baja esta categoría?')">
+                                    <form action="<?= app_url('/categorias/' . $cat->id . '/desactivar') ?>" method="POST" class="inline" onsubmit="return confirm('¿Dar de baja esta categoría?')">
                                         <?= csrf_field() ?>
                                         <button type="submit" class="inline-flex items-center justify-center p-1.5 rounded-lg text-danger-600 bg-danger-50 hover:bg-danger-100 dark:bg-danger-950/40 dark:text-danger-300 transition-colors shadow-xs" title="Dar de baja">
                                             <?= icon('trash-2', 'w-4 h-4 text-danger-600') ?>
@@ -193,7 +193,7 @@ foreach ($categorias as $cat) {
             </div>
 
             <!-- Sección 1: Edición de Datos de la Categoría -->
-            <form :action="'/categorias/' + (selectedCat ? selectedCat.id : '') + '/actualizar'" method="POST" class="space-y-4 mb-6">
+            <form :action="'<?= app_url('/categorias') ?>/' + (selectedCat ? selectedCat.id : '') + '/actualizar'" method="POST" class="space-y-4 mb-6">
                 <?= csrf_field() ?>
 
                 <div class="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Datos Principales</div>
@@ -257,7 +257,7 @@ foreach ($categorias as $cat) {
                                       :class="resp.sede_nombre ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300' : 'bg-ink-200/60 text-ink-600 dark:bg-ink-700 dark:text-ink-300'"
                                       x-text="resp.sede_nombre ? resp.sede_nombre : 'Todas las Sedes'"></span>
                             </div>
-                            <form :action="'/categorias/' + selectedCat.id + '/responsables/eliminar'" method="POST" onsubmit="return confirm('¿Remover este responsable?')">
+                            <form :action="'<?= app_url('/categorias') ?>/' + selectedCat.id + '/responsables/eliminar'" method="POST" onsubmit="return confirm('¿Remover este responsable?')">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="responsable_id" :value="resp.id">
                                 <input type="hidden" name="email" :value="resp.email">
@@ -271,7 +271,7 @@ foreach ($categorias as $cat) {
                 </div>
 
                 <!-- Formulario Agregar Nuevo Responsable -->
-                <form :action="'/categorias/' + (selectedCat ? selectedCat.id : '') + '/responsables'" method="POST" class="p-4 rounded-xl bg-ink-50 dark:bg-ink-800/60 border border-ink-200 dark:border-ink-700 space-y-3">
+                <form :action="'<?= app_url('/categorias') ?>/' + (selectedCat ? selectedCat.id : '') + '/responsables'" method="POST" class="p-4 rounded-xl bg-ink-50 dark:bg-ink-800/60 border border-ink-200 dark:border-ink-700 space-y-3">
                     <?= csrf_field() ?>
                     <div class="text-xs font-bold text-ink-800 dark:text-white flex items-center gap-1.5">
                         <?= icon('user-plus', 'w-3.5 h-3.5 text-brand-600') ?>
@@ -328,7 +328,7 @@ foreach ($categorias as $cat) {
                 </button>
             </div>
 
-            <form action="/categorias" method="POST" class="space-y-4">
+            <form action="<?= app_url('/categorias') ?>" method="POST" class="space-y-4">
                 <?= csrf_field() ?>
 
                 <div>

@@ -17,7 +17,7 @@ foreach ($usuarios as $u) {
     nombre: "",
     email: "",
     rol: "recepcion_sede",
-    sedeId: "",
+    sedesIds: [],
     activo: true,
     edit(id) {
         const u = this.users[id];
@@ -26,7 +26,9 @@ foreach ($usuarios as $u) {
         this.nombre = u.nombre;
         this.email = u.email;
         this.rol = u.rol;
-        this.sedeId = u.sede_id || "";
+        this.sedesIds = (u.sedes_ids && u.sedes_ids.length > 0) 
+            ? u.sedes_ids.map(Number) 
+            : (u.sede_id ? [Number(u.sede_id)] : []);
         this.activo = !!u.activo;
         this.modalEdit = true;
     }
@@ -69,7 +71,7 @@ foreach ($usuarios as $u) {
                     <tr>
                         <th scope="col" class="py-3.5 px-4">Usuario / Email</th>
                         <th scope="col" class="py-3.5 px-4">Rol del Sistema</th>
-                        <th scope="col" class="py-3.5 px-4">Sede Asignada</th>
+                        <th scope="col" class="py-3.5 px-4">Sedes Asignadas</th>
                         <th scope="col" class="py-3.5 px-4">Último Acceso</th>
                         <th scope="col" class="py-3.5 px-4">Estado</th>
                         <th scope="col" class="py-3.5 px-4 text-right">Acciones</th>
@@ -88,7 +90,21 @@ foreach ($usuarios as $u) {
                                 </span>
                             </td>
                             <td class="py-3.5 px-4 text-xs font-medium">
-                                <?= $u->sede_nombre ? e($u->sede_nombre) : '<span class="text-ink-400">Todas las sedes</span>' ?>
+                                <?php if (!empty($u->sedes_nombres)): ?>
+                                    <div class="flex flex-wrap gap-1">
+                                        <?php foreach ($u->sedes_nombres as $nombreSede): ?>
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200 dark:bg-brand-950/50 dark:text-brand-300 dark:border-brand-800">
+                                                <?= e($nombreSede) ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php elseif ($u->sede_nombre): ?>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200 dark:bg-brand-950/50 dark:text-brand-300 dark:border-brand-800">
+                                        <?= e($u->sede_nombre) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="text-ink-400 italic">Todas las sedes</span>
+                                <?php endif; ?>
                             </td>
                             <td class="py-3.5 px-4 text-xs text-ink-500">
                                 <?= fmt_datetime($u->ultimo_login) ?>
@@ -103,7 +119,7 @@ foreach ($usuarios as $u) {
                                     <?= icon('edit-3', 'w-4 h-4 text-brand-600') ?>
                                 </button>
                                 <?php if ($u->id !== $user->id): ?>
-                                    <form action="/usuarios/<?= $u->id ?>/estado" method="POST" class="inline">
+                                    <form action="<?= app_url('/usuarios/' . $u->id . '/estado') ?>" method="POST" class="inline">
                                         <?= csrf_field() ?>
                                         <button type="submit" 
                                                 class="inline-flex items-center justify-center p-1.5 rounded-lg <?= $u->activo ? 'text-danger-600 bg-danger-50 hover:bg-danger-100 dark:bg-danger-950/40 dark:text-danger-300' : 'text-success-600 bg-success-50 hover:bg-success-100 dark:bg-success-950/40 dark:text-success-300' ?> transition-colors shadow-xs" 
@@ -129,7 +145,7 @@ foreach ($usuarios as $u) {
                     <?= icon('x', 'w-4 h-4 text-ink-500') ?>
                 </button>
             </div>
-            <form action="/usuarios" method="POST" class="space-y-4">
+            <form action="<?= app_url('/usuarios') ?>" method="POST" class="space-y-4">
                 <?= csrf_field() ?>
                 <div>
                     <label class="form-label">Nombre y Apellido <span class="text-danger-500">*</span></label>
@@ -149,14 +165,20 @@ foreach ($usuarios as $u) {
                         <option value="administrador">Administrador</option>
                     </select>
                 </div>
-                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'">
-                    <label class="form-label">Sede Asignada <span class="text-danger-500">*</span></label>
-                    <select name="sede_id" class="form-select">
-                        <option value="">Seleccionar sede...</option>
+                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'" class="space-y-1.5">
+                    <label class="form-label flex items-center justify-between">
+                        <span>Sedes Asignadas <span class="text-danger-500">*</span></span>
+                        <span class="text-[11px] text-ink-400 font-normal">Podés marcar una o varias</span>
+                    </label>
+                    <div class="max-h-48 overflow-y-auto p-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-800/40 space-y-1">
                         <?php foreach ($sedes as $s): ?>
-                            <option value="<?= $s->id ?>"><?= e($s->nombre) ?></option>
+                            <label class="flex items-center gap-2.5 p-2 rounded-lg hover:bg-white dark:hover:bg-ink-700/60 cursor-pointer text-xs font-medium text-ink-800 dark:text-ink-200 transition-colors">
+                                <input type="checkbox" name="sedes_ids[]" value="<?= $s->id ?>" class="rounded border-ink-300 text-brand-600 focus:ring-brand-500 w-4 h-4">
+                                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: <?= e($s->color_primario) ?>"></span>
+                                <span><?= e($s->nombre) ?></span>
+                            </label>
                         <?php endforeach; ?>
-                    </select>
+                    </div>
                 </div>
                 <div class="p-3 bg-brand-50/60 dark:bg-brand-950/20 border border-brand-100 dark:border-brand-900/40 rounded-lg text-xs text-brand-700 dark:text-brand-300 flex items-start gap-2">
                     <?= icon('info', 'w-4 h-4 text-brand-500 shrink-0 mt-0.5') ?>
@@ -179,7 +201,7 @@ foreach ($usuarios as $u) {
                     <?= icon('x', 'w-4 h-4 text-ink-500') ?>
                 </button>
             </div>
-            <form :action="'/usuarios/' + (editingUser ? editingUser.id : '') + '/actualizar'" method="POST" class="space-y-4">
+            <form :action="'<?= app_url('/usuarios') ?>/' + (editingUser ? editingUser.id : '') + '/actualizar'" method="POST" class="space-y-4">
                 <?= csrf_field() ?>
                 <div>
                     <label class="form-label">Nombre y Apellido <span class="text-danger-500">*</span></label>
@@ -199,14 +221,23 @@ foreach ($usuarios as $u) {
                         <option value="administrador">Administrador</option>
                     </select>
                 </div>
-                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'">
-                    <label class="form-label">Sede Asignada</label>
-                    <select name="sede_id" x-model="sedeId" class="form-select">
-                        <option value="">Seleccionar sede...</option>
+                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'" class="space-y-1.5">
+                    <label class="form-label flex items-center justify-between">
+                        <span>Sedes Asignadas <span class="text-danger-500">*</span></span>
+                        <span class="text-[11px] text-ink-400 font-normal">Podés marcar una o varias</span>
+                    </label>
+                    <div class="max-h-48 overflow-y-auto p-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-800/40 space-y-1">
                         <?php foreach ($sedes as $s): ?>
-                            <option value="<?= $s->id ?>"><?= e($s->nombre) ?></option>
+                            <label class="flex items-center gap-2.5 p-2 rounded-lg hover:bg-white dark:hover:bg-ink-700/60 cursor-pointer text-xs font-medium text-ink-800 dark:text-ink-200 transition-colors">
+                                <input type="checkbox" name="sedes_ids[]" value="<?= $s->id ?>" 
+                                       :checked="sedesIds.includes(<?= $s->id ?>)"
+                                       @change="if ($event.target.checked) { if (!sedesIds.includes(<?= $s->id ?>)) sedesIds.push(<?= $s->id ?>); } else { sedesIds = sedesIds.filter(x => x !== <?= $s->id ?>); }"
+                                       class="rounded border-ink-300 text-brand-600 focus:ring-brand-500 w-4 h-4">
+                                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: <?= e($s->color_primario) ?>"></span>
+                                <span><?= e($s->nombre) ?></span>
+                            </label>
                         <?php endforeach; ?>
-                    </select>
+                    </div>
                 </div>
                 <div class="p-3 bg-brand-50/60 dark:bg-brand-950/20 border border-brand-100 dark:border-brand-900/40 rounded-lg text-xs text-brand-700 dark:text-brand-300 flex items-start gap-2">
                     <?= icon('info', 'w-4 h-4 text-brand-500 shrink-0 mt-0.5') ?>

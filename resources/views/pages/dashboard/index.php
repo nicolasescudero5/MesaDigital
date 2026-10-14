@@ -80,11 +80,15 @@ $view = $container->get(\App\Support\View::class);
     <div class="card lg:col-span-2 flex flex-col">
         <div class="flex items-center justify-between pb-4 border-b border-ink-100 dark:border-ink-800 mb-4">
             <h2 class="font-display font-bold text-base text-ink-900 dark:text-white">
-                <?= ($user && ($user->isRecepcion() || $user->isDireccion())) ? 'Mi Sede' : 'Distribución por Sede' ?>
+                <?= ($user && ($user->isRecepcion() || $user->isDireccion())) 
+                    ? (count($desgloseSedes) === 1 ? 'Mi Sede' : 'Mis Sedes') 
+                    : 'Distribución por Sede' ?>
             </h2>
             <span class="text-xs text-ink-400 font-semibold">
                 <?= ($user && ($user->isRecepcion() || $user->isDireccion())) 
-                    ? (!empty($desgloseSedes) ? e($desgloseSedes[0]['nombre']) : 'Sin sede asignada') 
+                    ? (count($desgloseSedes) === 1 
+                        ? (!empty($desgloseSedes) ? e($desgloseSedes[0]['nombre']) : 'Sin sede asignada') 
+                        : count($desgloseSedes) . ' sedes asignadas') 
                     : 'Total Sedes: ' . count($desgloseSedes) ?>
             </span>
         </div>

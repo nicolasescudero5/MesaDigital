@@ -71,7 +71,7 @@ class DocumentoRepository
         }
 
         if ($usuario->isRecepcion() || $usuario->isDireccion()) {
-            return $documento->sede_id === $usuario->sede_id;
+            return $usuario->canAccessSede((int)$documento->sede_id);
         }
 
         if ($usuario->isResponsable()) {
@@ -158,8 +158,18 @@ class DocumentoRepository
         if ($usuario->isAdministrador() || $usuario->isSupervision()) {
             // Ve todo el sistema
         } elseif ($usuario->isRecepcion() || $usuario->isDireccion()) {
-            $clauses[] = "d.sede_id = :scope_sede_id";
-            $params['scope_sede_id'] = $usuario->sede_id;
+            $sedes = $usuario->getSedesIds();
+            if (empty($sedes)) {
+                $clauses[] = "1 = 0";
+            } else {
+                $placeholders = [];
+                foreach ($sedes as $idx => $sId) {
+                    $key = "scope_sede_{$idx}";
+                    $placeholders[] = ":{$key}";
+                    $params[$key] = $sId;
+                }
+                $clauses[] = "d.sede_id IN (" . implode(',', $placeholders) . ")";
+            }
         } elseif ($usuario->isResponsable()) {
             $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
             if (empty($categoriasAsignadas)) {
@@ -435,9 +445,19 @@ class DocumentoRepository
         if ($usuario->isAdministrador() || $usuario->isSupervision()) {
             // Ve todas las sedes y todos los documentos activos
         } elseif ($usuario->isRecepcion() || $usuario->isDireccion()) {
-            // Solo puede ver la sede que tiene asociada
-            $sedeConditions[] = 's.id = :scope_sede_id';
-            $params['scope_sede_id'] = $usuario->sede_id ?? 0;
+            // Solo puede ver las sedes que tiene asociadas
+            $sedes = $usuario->getSedesIds();
+            if (empty($sedes)) {
+                $sedeConditions[] = '1 = 0';
+            } else {
+                $placeholders = [];
+                foreach ($sedes as $idx => $sId) {
+                    $key = "breakdown_sede_{$idx}";
+                    $placeholders[] = ":{$key}";
+                    $params[$key] = $sId;
+                }
+                $sedeConditions[] = 's.id IN (' . implode(',', $placeholders) . ')';
+            }
         } elseif ($usuario->isResponsable()) {
             $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
             if (empty($categoriasAsignadas)) {
@@ -483,9 +503,19 @@ class DocumentoRepository
         if ($usuario->isAdministrador() || $usuario->isSupervision()) {
             // Ve todo el sistema
         } elseif ($usuario->isRecepcion() || $usuario->isDireccion()) {
-            // Solo documentos de su sede
-            $docConditions[] = 'd.sede_id = :scope_sede_id';
-            $params['scope_sede_id'] = $usuario->sede_id ?? 0;
+            // Solo documentos de sus sedes asignadas
+            $sedes = $usuario->getSedesIds();
+            if (empty($sedes)) {
+                $docConditions[] = '1 = 0';
+            } else {
+                $placeholders = [];
+                foreach ($sedes as $idx => $sId) {
+                    $key = "breakdown_cat_sede_{$idx}";
+                    $placeholders[] = ":{$key}";
+                    $params[$key] = $sId;
+                }
+                $docConditions[] = 'd.sede_id IN (' . implode(',', $placeholders) . ')';
+            }
         } elseif ($usuario->isResponsable()) {
             $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
             if (empty($categoriasAsignadas)) {
