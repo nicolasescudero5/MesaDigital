@@ -10,6 +10,7 @@ foreach ($categorias as $cat) {
         $resps[] = [
             'id' => $r->id,
             'email' => $r->email,
+            'usuario_id' => $r->usuario_id,
             'usuario_nombre' => $r->usuario_nombre,
             'sede_id' => $r->sede_id,
             'sede_nombre' => $r->sede_nombre,
@@ -25,10 +26,32 @@ foreach ($categorias as $cat) {
         'responsables' => $resps
     ];
 }
+
+$usuariosMap = [];
+foreach ($usuariosResponsables as $u) {
+    $usuariosMap[$u->id] = [
+        'id' => (int)$u->id,
+        'nombre' => $u->nombre,
+        'email' => $u->email,
+        'rol' => $u->rol,
+        'sedes_ids' => $u->getSedesIds(),
+    ];
+}
+
+$sedesList = [];
+foreach ($sedes as $s) {
+    $sedesList[] = [
+        'id' => (int)$s->id,
+        'nombre' => $s->nombre,
+        'color_primario' => $s->color_primario,
+    ];
+}
 ?>
 
 <div x-data='{
     categorias: <?= json_encode($categoriasMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+    usuarios: <?= json_encode($usuariosMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+    sedes: <?= json_encode($sedesList, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
     modalNew: false,
     modalManage: false,
     selectedCat: null,
@@ -36,6 +59,9 @@ foreach ($categorias as $cat) {
     descripcion: "",
     orden: 0,
     activo: true,
+    newRespUserId: "",
+    newRespEmail: "",
+    newRespSedesIds: [],
     openManage(id) {
         const c = this.categorias[id];
         if (!c) return;
@@ -44,7 +70,39 @@ foreach ($categorias as $cat) {
         this.descripcion = c.descripcion || "";
         this.orden = c.orden;
         this.activo = !!c.activo;
+        this.newRespUserId = "";
+        this.newRespEmail = "";
+        this.newRespSedesIds = [];
         this.modalManage = true;
+    },
+    getAvailableSedes() {
+        if (this.newRespUserId && this.usuarios[this.newRespUserId]) {
+            const u = this.usuarios[this.newRespUserId];
+            if (u.sedes_ids && u.sedes_ids.length > 0) {
+                const allowed = u.sedes_ids.map(Number);
+                return this.sedes.filter(s => allowed.includes(Number(s.id)));
+            }
+        }
+        return this.sedes;
+    },
+    onSelectRespUser() {
+        const avail = this.getAvailableSedes().map(s => Number(s.id));
+        this.newRespSedesIds = this.newRespSedesIds.filter(id => avail.includes(Number(id)));
+        if (this.newRespUserId && this.usuarios[this.newRespUserId]) {
+            const u = this.usuarios[this.newRespUserId];
+            if (u.sedes_ids && u.sedes_ids.length > 0 && this.newRespSedesIds.length === 0) {
+                this.newRespSedesIds = u.sedes_ids.map(Number);
+            }
+        }
+    },
+    toggleAllAvailableSedes() {
+        const avail = this.getAvailableSedes().map(s => Number(s.id));
+        const allChecked = avail.length > 0 && avail.every(id => this.newRespSedesIds.includes(id));
+        if (allChecked) {
+            this.newRespSedesIds = [];
+        } else {
+            this.newRespSedesIds = [...avail];
+        }
     }
 }'>
 
@@ -130,15 +188,30 @@ foreach ($categorias as $cat) {
                                             <span>Sin responsables (+ asignar)</span>
                                         </button>
                                     <?php else: ?>
-                                        <?php foreach ($cat->responsables as $resp): ?>
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-ink-100 dark:bg-ink-800 text-[11px] font-medium text-ink-700 dark:text-ink-200 border border-ink-200 dark:border-ink-700">
+                                        <?php
+                                        $groupedByEmail = [];
+                                        foreach ($cat->responsables as $resp) {
+                                            $key = strtolower($resp->email);
+                                            if (!isset($groupedByEmail[$key])) {
+                                                $groupedByEmail[$key] = [
+                                                    'email' => $resp->email,
+                                                    'sedes' => []
+                                                ];
+                                            }
+                                            $groupedByEmail[$key]['sedes'][] = $resp->sede_nombre ?: 'Global';
+                                        }
+                                        ?>
+                                        <?php foreach ($groupedByEmail as $grp): ?>
+                                            <span class="inline-flex flex-wrap items-center gap-1 px-2 py-0.5 rounded-md bg-ink-100 dark:bg-ink-800 text-[11px] font-medium text-ink-700 dark:text-ink-200 border border-ink-200 dark:border-ink-700">
                                                 <?= icon('mail', 'w-3 h-3 text-ink-400') ?>
-                                                <span><?= e($resp->email) ?></span>
-                                                <?php if ($resp->sede_nombre): ?>
-                                                    <span class="px-1 py-0.2 text-[9px] font-bold rounded bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300"><?= e($resp->sede_nombre) ?></span>
-                                                <?php else: ?>
-                                                    <span class="px-1 py-0.2 text-[9px] font-semibold rounded bg-ink-200/60 text-ink-600 dark:bg-ink-700 dark:text-ink-300">Global</span>
-                                                <?php endif; ?>
+                                                <span><?= e($grp['email']) ?></span>
+                                                <?php foreach ($grp['sedes'] as $sedeLabel): ?>
+                                                    <?php if ($sedeLabel !== 'Global'): ?>
+                                                        <span class="px-1 py-0.2 text-[9px] font-bold rounded bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300"><?= e($sedeLabel) ?></span>
+                                                    <?php else: ?>
+                                                        <span class="px-1 py-0.2 text-[9px] font-semibold rounded bg-ink-200/60 text-ink-600 dark:bg-ink-700 dark:text-ink-300">Global</span>
+                                                    <?php endif; ?>
+                                                <?php endforeach; ?>
                                             </span>
                                         <?php endforeach; ?>
                                         <button type="button" @click="openManage(<?= $cat->id ?>)" class="text-[11px] font-bold text-brand-600 hover:text-brand-700 ml-1">
@@ -195,6 +268,11 @@ foreach ($categorias as $cat) {
             <!-- Sección 1: Edición de Datos de la Categoría -->
             <form :action="'<?= app_url('/categorias') ?>/' + (selectedCat ? selectedCat.id : '') + '/actualizar'" method="POST" class="space-y-4 mb-6">
                 <?= csrf_field() ?>
+                <input type="hidden" name="usuario_id" :value="newRespUserId">
+                <input type="hidden" name="email" :value="newRespEmail">
+                <template x-for="sid in newRespSedesIds" :key="'cat_upd_sede_' + sid">
+                    <input type="hidden" name="sedes_ids[]" :value="sid">
+                </template>
 
                 <div class="text-xs font-bold uppercase tracking-wider text-ink-500 mb-2">Datos Principales</div>
 
@@ -278,10 +356,10 @@ foreach ($categorias as $cat) {
                         <span>Asignar Nuevo Responsable</span>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label class="form-label text-[10px]">Usuario del Sistema</label>
-                            <select name="usuario_id" class="form-select text-xs">
+                            <select name="usuario_id" x-model="newRespUserId" @change="onSelectRespUser()" class="form-select text-xs">
                                 <option value="">O ingresar email...</option>
                                 <?php foreach ($usuariosResponsables as $u): ?>
                                     <option value="<?= $u->id ?>"><?= e($u->nombre) ?> (<?= e($u->email) ?>)</option>
@@ -290,23 +368,40 @@ foreach ($categorias as $cat) {
                         </div>
                         <div>
                             <label class="form-label text-[10px]">O Correo Directo</label>
-                            <input type="email" name="email" class="form-input text-xs" placeholder="ejemplo@abogados.com">
-                        </div>
-                        <div>
-                            <label class="form-label text-[10px]">Sede de Alcance</label>
-                            <select name="sede_id" class="form-select text-xs font-medium">
-                                <option value="">Todas las Sedes (Global)</option>
-                                <?php foreach ($sedes as $s): ?>
-                                    <option value="<?= $s->id ?>"><?= e($s->nombre) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <input type="email" name="email" x-model="newRespEmail" :disabled="!!newRespUserId" class="form-input text-xs disabled:opacity-50" placeholder="ejemplo@abogados.com">
                         </div>
                     </div>
 
-                    <div class="flex justify-end">
-                        <button type="submit" class="btn-neutral text-xs font-bold inline-flex items-center gap-1.5 shadow-xs">
-                            <?= icon('plus', 'w-3.5 h-3.5 text-brand-600') ?>
-                            <span>+ Asignar Responsable</span>
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between">
+                            <label class="form-label text-[10px] mb-0">Sedes de Alcance</label>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-ink-400" x-show="newRespSedesIds.length === 0 && (!newRespUserId || !usuarios[newRespUserId] || !usuarios[newRespUserId].sedes_ids || usuarios[newRespUserId].sedes_ids.length === 0)">
+                                    Sin marcar = Todas las Sedes (Global)
+                                </span>
+                                <button type="button" @click="toggleAllAvailableSedes()" class="text-[10px] font-bold text-brand-600 hover:text-brand-700 underline">
+                                    Marcar / Desmarcar todas
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-40 overflow-y-auto p-2 rounded-xl border border-ink-200 dark:border-ink-700 bg-white dark:bg-ink-900/60">
+                            <template x-for="s in getAvailableSedes()" :key="s.id">
+                                <label class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-ink-50 dark:hover:bg-ink-800/60 cursor-pointer text-xs font-medium text-ink-800 dark:text-ink-200 transition-colors">
+                                    <input type="checkbox" name="sedes_ids[]" :value="s.id"
+                                           :checked="newRespSedesIds.includes(Number(s.id))"
+                                           @change="if ($event.target.checked) { if (!newRespSedesIds.includes(Number(s.id))) newRespSedesIds.push(Number(s.id)); } else { newRespSedesIds = newRespSedesIds.filter(x => x !== Number(s.id)); }"
+                                           class="rounded border-ink-300 text-brand-600 focus:ring-brand-500 w-3.5 h-3.5">
+                                    <span class="w-2 h-2 rounded-full shrink-0" :style="'background-color: ' + s.color_primario"></span>
+                                    <span class="truncate" x-text="s.nombre"></span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-2">
+                        <button type="submit" class="btn-primary text-xs font-bold inline-flex items-center gap-1.5 shadow-xs text-white">
+                            <?= icon('plus', 'w-3.5 h-3.5 text-white') ?>
+                            <span>Guardar Responsable</span>
                         </button>
                     </div>
                 </form>

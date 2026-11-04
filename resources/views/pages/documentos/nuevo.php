@@ -200,10 +200,18 @@ function nuevoDocumentoForm() {
         getCurrentResponsables() {
             if (!this.categoriaId || !this.categorias[this.categoriaId]) return [];
             const all = this.categorias[this.categoriaId].responsables || [];
-            if (!this.sedeId) return all;
-            const sedeSpecific = all.filter(r => String(r.sede_id) === String(this.sedeId));
-            if (sedeSpecific.length > 0) return sedeSpecific;
-            return all.filter(r => !r.sede_id);
+            let matches = all;
+            if (this.sedeId) {
+                matches = all.filter(r => !r.sede_id || String(r.sede_id) === String(this.sedeId));
+            }
+            const byEmail = {};
+            for (const r of matches) {
+                const key = (r.email || "").toLowerCase();
+                if (!byEmail[key] || r.sede_id) {
+                    byEmail[key] = r;
+                }
+            }
+            return Object.values(byEmail);
         },
         getCurrentCategoriaNombre() {
             if (!this.categoriaId || !this.categorias[this.categoriaId]) return "";

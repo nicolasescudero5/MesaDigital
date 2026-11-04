@@ -131,6 +131,27 @@ class CategoriaRepository
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 
+    /**
+     * Obtiene las asignaciones activas (categoria_id y sede_id) para un usuario responsable
+     * @return array<int, array{categoria_id: int, sede_id: ?int}>
+     */
+    public function getAsignacionesResponsableByUsuarioId(int $usuarioId): array
+    {
+        $sql = "SELECT categoria_id, sede_id FROM categoria_responsables WHERE usuario_id = :usuario_id AND activo = 1";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute(['usuario_id' => $usuarioId]);
+        $rows = $stmt->fetchAll();
+
+        $result = [];
+        foreach ($rows as $row) {
+            $result[] = [
+                'categoria_id' => (int)$row['categoria_id'],
+                'sede_id' => $row['sede_id'] !== null && $row['sede_id'] !== '' ? (int)$row['sede_id'] : null,
+            ];
+        }
+        return $result;
+    }
+
     private function getAllActiveResponsablesGroupedByCategoria(): array
     {
         $sql = "SELECT cr.*, u.nombre AS usuario_nombre, u.rol AS usuario_rol, s.nombre AS sede_nombre 
@@ -201,6 +222,8 @@ class CategoriaRepository
 
     public function addResponsable(int $categoriaId, string $email, ?int $usuarioId, ?int $sedeId, int $creadoPor): bool
     {
+        $this->ensureMultiSedeSchema();
+
         // Verificar si ya existe registro idéntico (misma categoría, mismo email, misma sede)
         $sqlCheck = "SELECT id FROM categoria_responsables 
                      WHERE categoria_id = :cat_id AND LOWER(email) = LOWER(:email) " .
@@ -227,6 +250,36 @@ class CategoriaRepository
             'usuario_id' => $usuarioId,
             'creado_por' => $creadoPor
         ]);
+    }
+
+    private static bool $schemaChecked = false;
+
+    private function ensureMultiSedeSchema(): void
+    {
+        if (self::$schemaChecked) {
+            return;
+        }
+        self::$schemaChecked = true;
+
+        try {
+            $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+            if ($driver !== 'mysql') {
+                return;
+            }
+
+            $idxStmt = $this->pdo->query("SHOW INDEX FROM categoria_responsables WHERE Key_name = 'uq_categoria_email'");
+            $hasLegacyUnique = $idxStmt && $idxStmt->fetch();
+
+            if ($hasLegacyUnique) {
+                $catIdxStmt = $this->pdo->query("SHOW INDEX FROM categoria_responsables WHERE Key_name = 'idx_categoria_responsables_cat_email'");
+                if (!$catIdxStmt || !$catIdxStmt->fetch()) {
+                    $this->pdo->exec("ALTER TABLE categoria_responsables ADD INDEX idx_categoria_responsables_cat_email (categoria_id, email, sede_id)");
+                }
+                $this->pdo->exec("ALTER TABLE categoria_responsables DROP INDEX uq_categoria_email");
+            }
+        } catch (\Throwable) {
+            // Si no tiene permisos DDL o ya fue migrado, continúa normalmente
+        }
     }
 
     public function removeResponsableById(int $id): bool

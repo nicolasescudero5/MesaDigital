@@ -66,7 +66,7 @@ class CategoriaController
             $initialEmail = trim((string)($_POST['responsable_email'] ?? ''));
             $initialUserId = !empty($_POST['responsable_usuario_id']) ? (int)$_POST['responsable_usuario_id'] : null;
             if (!empty($initialEmail)) {
-                $this->categoriaRepository->addResponsable($catId, $initialEmail, $initialUserId, (int)$user->id);
+                $this->categoriaRepository->addResponsable($catId, $initialEmail, $initialUserId, null, (int)$user->id);
             }
 
             flash('success', "Categoría '{$nombre}' creada exitosamente.");
@@ -100,6 +100,12 @@ class CategoriaController
 
         try {
             $this->categoriaRepository->update($cat);
+
+            // Si también se seleccionó un responsable o correo en el formulario de edición, guardarlo en el mismo paso
+            if (!empty($_POST['usuario_id']) || !empty($_POST['email'])) {
+                $this->saveResponsableFromPost($id, (int)$user->id);
+            }
+
             flash('success', "Categoría '{$nombre}' actualizada.");
         } catch (\Throwable $e) {
             flash('error', 'Error al actualizar: ' . $e->getMessage());
@@ -131,33 +137,77 @@ class CategoriaController
     {
         $user = $this->authProvider->currentUser();
         $catId = (int)($vars['id'] ?? 0);
+
+        try {
+            $email = $this->saveResponsableFromPost($catId, (int)$user->id);
+            if (!$email) {
+                flash('error', 'Debe seleccionar un usuario o indicar un correo electrónico válido.');
+                redirect('/categorias');
+            }
+            flash('success', "Responsable {$email} guardado en la categoría.");
+        } catch (\Throwable $e) {
+            flash('error', 'Error al guardar responsable: ' . $e->getMessage());
+        }
+
+        redirect('/categorias');
+    }
+
+    private function saveResponsableFromPost(int $catId, int $creadoPor): ?string
+    {
         $email = trim((string)($_POST['email'] ?? ''));
         $usuarioId = !empty($_POST['usuario_id']) ? (int)$_POST['usuario_id'] : null;
-        $sedeId = !empty($_POST['sede_id']) ? (int)$_POST['sede_id'] : null;
 
-        if (empty($email)) {
-            // Si eligió un usuario de la lista desplegable, tomar su email
-            if ($usuarioId) {
-                $u = $this->usuarioRepository->findById($usuarioId);
-                if ($u) {
-                    $email = $u->email;
-                }
+        // Soportar múltiples sedes (sedes_ids[]) o una sede única (sede_id)
+        $sedesIds = [];
+        if (isset($_POST['sedes_ids']) && is_array($_POST['sedes_ids'])) {
+            $sedesIds = array_values(array_unique(array_filter(array_map('intval', $_POST['sedes_ids']))));
+        } elseif (!empty($_POST['sede_id'])) {
+            $sedesIds = [(int)$_POST['sede_id']];
+        }
+
+        $selectedUser = null;
+        if ($usuarioId) {
+            $selectedUser = $this->usuarioRepository->findById($usuarioId);
+            if ($selectedUser && empty($email)) {
+                $email = $selectedUser->email;
+            }
+        } elseif (!empty($email)) {
+            $selectedUser = $this->usuarioRepository->findByEmail($email);
+            if ($selectedUser) {
+                $usuarioId = (int)$selectedUser->id;
             }
         }
 
         if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            flash('error', 'Debe indicar un correo electrónico válido.');
-            redirect('/categorias');
+            return null;
         }
 
-        try {
-            $this->categoriaRepository->addResponsable($catId, $email, $usuarioId, $sedeId, (int)$user->id);
-            flash('success', "Responsable {$email} asignado a la categoría.");
-        } catch (\Throwable $e) {
-            flash('error', 'Error al asignar responsable: ' . $e->getMessage());
+        // Si el usuario tiene permisos restringidos a ciertas sedes en /usuarios, filtrar/validar que solo se asignen esas sedes
+        if ($selectedUser) {
+            $allowedSedesIds = $selectedUser->getSedesIds();
+            if (!empty($allowedSedesIds)) {
+                if (!empty($sedesIds)) {
+                    $sedesIds = array_values(array_intersect($sedesIds, $allowedSedesIds));
+                    if (empty($sedesIds)) {
+                        throw new \InvalidArgumentException('El usuario seleccionado no tiene permiso en las sedes indicadas.');
+                    }
+                } else {
+                    // Si no marcó ninguna en particular pero el usuario solo tiene permiso a ciertas sedes, asignar sus sedes permitidas
+                    $sedesIds = $allowedSedesIds;
+                }
+            }
         }
 
-        redirect('/categorias');
+        if (empty($sedesIds)) {
+            // Alcance Global (Todas las sedes)
+            $this->categoriaRepository->addResponsable($catId, $email, $usuarioId, null, $creadoPor);
+        } else {
+            foreach ($sedesIds as $sId) {
+                $this->categoriaRepository->addResponsable($catId, $email, $usuarioId, (int)$sId, $creadoPor);
+            }
+        }
+
+        return $email;
     }
 
     public function removeResponsable(array $vars): void

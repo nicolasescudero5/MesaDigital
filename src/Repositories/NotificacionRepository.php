@@ -40,10 +40,16 @@ class NotificacionRepository
         return (int)$this->pdo->lastInsertId();
     }
 
-    public function findPendientes(int $limit = 50): array
+    public function findPendientes(int $limit = 50, ?int $documentoId = null): array
     {
-        $stmt = $this->pdo->prepare("SELECT * FROM notificaciones_enviadas WHERE estado_envio = 'Pendiente' ORDER BY id ASC LIMIT :limit");
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        if ($documentoId !== null) {
+            $stmt = $this->pdo->prepare("SELECT * FROM notificaciones_enviadas WHERE estado_envio = 'Pendiente' AND documento_id = :documento_id ORDER BY id ASC LIMIT :limit");
+            $stmt->bindValue(':documento_id', $documentoId, PDO::PARAM_INT);
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        } else {
+            $stmt = $this->pdo->prepare("SELECT * FROM notificaciones_enviadas WHERE estado_envio = 'Pendiente' ORDER BY id ASC LIMIT :limit");
+            $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+        }
         $stmt->execute();
         $rows = $stmt->fetchAll();
 
@@ -75,6 +81,22 @@ class NotificacionRepository
 
     public function markFallido(int $id, string $errorMessage): bool
     {
+        return $this->markAsFailed($id, $errorMessage);
+    }
+
+    public function recordFailure(int $id, string $errorMessage, ?int $nextAttempt = null): bool
+    {
+        if ($nextAttempt !== null) {
+            $estado = $nextAttempt > 3 ? 'Fallido' : 'Pendiente';
+            $stmt = $this->pdo->prepare("UPDATE notificaciones_enviadas SET estado_envio = :estado, intento_numero = :intento, error_mensaje = :error WHERE id = :id");
+            return $stmt->execute([
+                'id' => $id,
+                'estado' => $estado,
+                'intento' => $nextAttempt,
+                'error' => $errorMessage
+            ]);
+        }
+
         return $this->markAsFailed($id, $errorMessage);
     }
 

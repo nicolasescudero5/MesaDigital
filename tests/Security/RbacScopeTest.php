@@ -254,4 +254,92 @@ class RbacScopeTest extends TestCase
         $this->assertNotNull($found);
         $this->assertEquals([2, 4, 5], $found->getSedesIds());
     }
+
+    /**
+     * Responsable de categoría asignado a múltiples sedes (ej. Sede 1 y Sede 2) solo ve documentos de esas sedes
+     */
+    public function test_responsable_con_multiples_sedes_en_categoria_ve_y_recibe_solo_sus_sedes(): void
+    {
+        $admin = $this->usuarioRepo->findById(1);
+
+        // Crear usuario responsable con permiso en Sede 1 y Sede 2
+        $respUser = new \App\Models\Usuario(
+            nombre: 'Responsable Sedes 1 y 2',
+            email: 'resp.sede1y2@reditinere.com',
+            rol: 'responsable_categoria',
+            activo: true,
+            sedes_ids: [1, 2]
+        );
+        $respUserId = $this->usuarioRepo->create($respUser, [1, 2]);
+        $loadedResp = $this->usuarioRepo->findById($respUserId);
+
+        // Validar que el usuario solo tiene acceso a sedes 1 y 2
+        $this->assertEquals([1, 2], $loadedResp->getSedesIds());
+        $this->assertTrue($loadedResp->canAccessSede(1));
+        $this->assertTrue($loadedResp->canAccessSede(2));
+        $this->assertFalse($loadedResp->canAccessSede(3));
+
+        // Crear categoría y asignarle a este responsable las sedes 1 y 2
+        $catId = $this->categoriaRepo->create(new \App\Models\Categoria(
+            nombre: 'Mantenimiento Zonal',
+            descripcion: 'Categoría con responsable multisede',
+            orden: 20,
+            activo: true,
+            creado_por: 1
+        ));
+
+        $this->categoriaRepo->addResponsable($catId, $loadedResp->email, $respUserId, 1, 1);
+        $this->categoriaRepo->addResponsable($catId, $loadedResp->email, $respUserId, 2, 1);
+
+        // Asignar otro responsable para la Sede 3
+        $this->categoriaRepo->addResponsable($catId, 'resp.sede3@reditinere.com', null, 3, 1);
+
+        $responsablesCat = $this->categoriaRepo->getResponsablesByCategoriaId($catId);
+        $this->assertCount(3, $responsablesCat);
+
+        // Crear documentos en Sede 1, Sede 2 y Sede 3 en esta categoría
+        $files = [['name' => 'f.jpg', 'type' => 'image/jpeg', 'tmp_name' => '/tmp/f.jpg', 'error' => UPLOAD_ERR_OK, 'size' => 1024]];
+
+        $doc1 = $this->documentoService->crear([
+            'sede_id' => 1,
+            'categoria_id' => $catId,
+            'tipo_documento_id' => 1,
+            'remitente' => 'Proveedor 1',
+            'asunto' => 'Asunto Sede 1',
+            'descripcion' => 'Desc 1',
+            'fecha_recepcion' => date('Y-m-d')
+        ], $files, $admin);
+
+        $doc2 = $this->documentoService->crear([
+            'sede_id' => 2,
+            'categoria_id' => $catId,
+            'tipo_documento_id' => 1,
+            'remitente' => 'Proveedor 2',
+            'asunto' => 'Asunto Sede 2',
+            'descripcion' => 'Desc 2',
+            'fecha_recepcion' => date('Y-m-d')
+        ], $files, $admin);
+
+        $doc3 = $this->documentoService->crear([
+            'sede_id' => 3,
+            'categoria_id' => $catId,
+            'tipo_documento_id' => 1,
+            'remitente' => 'Proveedor 3',
+            'asunto' => 'Asunto Sede 3',
+            'descripcion' => 'Desc 3',
+            'fecha_recepcion' => date('Y-m-d')
+        ], $files, $admin);
+
+        // Verificar que loadedResp ve doc1 y doc2 pero NO doc3
+        $result = $this->documentoRepo->findPaginatedWithScope($loadedResp, [], 100, 0);
+        $ids = array_map(fn($d) => $d->id, $result['items']);
+
+        $this->assertContains($doc1->id, $ids);
+        $this->assertContains($doc2->id, $ids);
+        $this->assertNotContains($doc3->id, $ids);
+
+        $this->assertTrue($this->documentoRepo->canUserView($loadedResp, $doc1));
+        $this->assertTrue($this->documentoRepo->canUserView($loadedResp, $doc2));
+        $this->assertFalse($this->documentoRepo->canUserView($loadedResp, $doc3));
+    }
 }

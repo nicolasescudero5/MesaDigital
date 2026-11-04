@@ -143,6 +143,12 @@ class Container
             // NotificacionService
             NotificacionService::class => function (ContainerInterface $c) {
                 $appConfig = $c->get('config.app');
+                $appUrl = $appConfig['url'] ?? 'http://localhost:8080';
+                if (!empty($_SERVER['HTTP_HOST'])) {
+                    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                    $basePath = defined('URL_BASE') ? URL_BASE : '';
+                    $appUrl = $scheme . '://' . $_SERVER['HTTP_HOST'] . $basePath;
+                }
                 return new NotificacionService(
                     $c->get(NotificacionRepository::class),
                     $c->get(CategoriaRepository::class),
@@ -150,7 +156,7 @@ class Container
                     $c->get(UsuarioRepository::class),
                     $c->get(MailerInterface::class),
                     $c->get(LoggerInterface::class),
-                    $appConfig['url'] ?? 'http://localhost:8080'
+                    $appUrl
                 );
             },
 

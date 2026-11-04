@@ -75,8 +75,18 @@ class DocumentoRepository
         }
 
         if ($usuario->isResponsable()) {
-            $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
-            return in_array($documento->categoria_id, $categoriasAsignadas, true);
+            if (!$usuario->canAccessSede((int)$documento->sede_id)) {
+                return false;
+            }
+            $asignaciones = $this->categoriaRepository->getAsignacionesResponsableByUsuarioId((int)$usuario->id);
+            foreach ($asignaciones as $asig) {
+                if ($asig['categoria_id'] === (int)$documento->categoria_id) {
+                    if ($asig['sede_id'] === null || $asig['sede_id'] === (int)$documento->sede_id) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         return false;
@@ -171,18 +181,36 @@ class DocumentoRepository
                 $clauses[] = "d.sede_id IN (" . implode(',', $placeholders) . ")";
             }
         } elseif ($usuario->isResponsable()) {
-            $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
-            if (empty($categoriasAsignadas)) {
+            $asignaciones = $this->categoriaRepository->getAsignacionesResponsableByUsuarioId((int)$usuario->id);
+            if (empty($asignaciones)) {
                 // Sin categorías asignadas no ve nada
                 $clauses[] = "1 = 0";
             } else {
-                $placeholders = [];
-                foreach ($categoriasAsignadas as $idx => $catId) {
-                    $key = "cat_scope_{$idx}";
-                    $placeholders[] = ":{$key}";
-                    $params[$key] = $catId;
+                $orParts = [];
+                foreach ($asignaciones as $idx => $asig) {
+                    $catKey = "cat_scope_{$idx}";
+                    $params[$catKey] = $asig['categoria_id'];
+                    if ($asig['sede_id'] !== null) {
+                        $sedeKey = "cat_sede_scope_{$idx}";
+                        $params[$sedeKey] = $asig['sede_id'];
+                        $orParts[] = "(d.categoria_id = :{$catKey} AND d.sede_id = :{$sedeKey})";
+                    } else {
+                        $orParts[] = "(d.categoria_id = :{$catKey})";
+                    }
                 }
-                $clauses[] = "d.categoria_id IN (" . implode(',', $placeholders) . ")";
+                $clauses[] = "(" . implode(' OR ', $orParts) . ")";
+
+                // Si además el usuario responsable tiene sedes restringidas a nivel usuario en /usuarios
+                $userSedes = $usuario->getSedesIds();
+                if (!empty($userSedes)) {
+                    $sedePlaceholders = [];
+                    foreach ($userSedes as $sIdx => $uSedeId) {
+                        $sKey = "resp_user_sede_{$sIdx}";
+                        $sedePlaceholders[] = ":{$sKey}";
+                        $params[$sKey] = $uSedeId;
+                    }
+                    $clauses[] = "d.sede_id IN (" . implode(',', $sedePlaceholders) . ")";
+                }
             }
         }
 
@@ -459,17 +487,34 @@ class DocumentoRepository
                 $sedeConditions[] = 's.id IN (' . implode(',', $placeholders) . ')';
             }
         } elseif ($usuario->isResponsable()) {
-            $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
-            if (empty($categoriasAsignadas)) {
+            $asignaciones = $this->categoriaRepository->getAsignacionesResponsableByUsuarioId((int)$usuario->id);
+            if (empty($asignaciones)) {
                 $docConditions[] = '1 = 0';
             } else {
-                $placeholders = [];
-                foreach ($categoriasAsignadas as $idx => $catId) {
-                    $key = "cat_scope_{$idx}";
-                    $placeholders[] = ":{$key}";
-                    $params[$key] = $catId;
+                $orParts = [];
+                foreach ($asignaciones as $idx => $asig) {
+                    $catKey = "cat_scope_{$idx}";
+                    $params[$catKey] = $asig['categoria_id'];
+                    if ($asig['sede_id'] !== null) {
+                        $sedeKey = "cat_sede_scope_{$idx}";
+                        $params[$sedeKey] = $asig['sede_id'];
+                        $orParts[] = "(d.categoria_id = :{$catKey} AND d.sede_id = :{$sedeKey})";
+                    } else {
+                        $orParts[] = "(d.categoria_id = :{$catKey})";
+                    }
                 }
-                $docConditions[] = 'd.categoria_id IN (' . implode(',', $placeholders) . ')';
+                $docConditions[] = '(' . implode(' OR ', $orParts) . ')';
+            }
+
+            $userSedes = $usuario->getSedesIds();
+            if (!empty($userSedes)) {
+                $placeholders = [];
+                foreach ($userSedes as $idx => $sId) {
+                    $key = "resp_breakdown_sede_{$idx}";
+                    $placeholders[] = ":{$key}";
+                    $params[$key] = $sId;
+                }
+                $sedeConditions[] = 's.id IN (' . implode(',', $placeholders) . ')';
             }
         }
 
@@ -517,19 +562,44 @@ class DocumentoRepository
                 $docConditions[] = 'd.sede_id IN (' . implode(',', $placeholders) . ')';
             }
         } elseif ($usuario->isResponsable()) {
-            $categoriasAsignadas = $this->categoriaRepository->getCategoriasByUsuarioId((int)$usuario->id);
-            if (empty($categoriasAsignadas)) {
+            $asignaciones = $this->categoriaRepository->getAsignacionesResponsableByUsuarioId((int)$usuario->id);
+            if (empty($asignaciones)) {
                 $catConditions[] = '1 = 0';
                 $docConditions[] = '1 = 0';
             } else {
+                $categoriasAsignadas = array_values(array_unique(array_column($asignaciones, 'categoria_id')));
                 $placeholders = [];
                 foreach ($categoriasAsignadas as $idx => $catId) {
-                    $key = "cat_scope_{$idx}";
+                    $key = "cat_list_scope_{$idx}";
                     $placeholders[] = ":{$key}";
                     $params[$key] = $catId;
                 }
                 $catConditions[] = 'c.id IN (' . implode(',', $placeholders) . ')';
-                $docConditions[] = 'd.categoria_id IN (' . implode(',', $placeholders) . ')';
+
+                $orParts = [];
+                foreach ($asignaciones as $idx => $asig) {
+                    $catKey = "cat_doc_scope_{$idx}";
+                    $params[$catKey] = $asig['categoria_id'];
+                    if ($asig['sede_id'] !== null) {
+                        $sedeKey = "cat_doc_sede_scope_{$idx}";
+                        $params[$sedeKey] = $asig['sede_id'];
+                        $orParts[] = "(d.categoria_id = :{$catKey} AND d.sede_id = :{$sedeKey})";
+                    } else {
+                        $orParts[] = "(d.categoria_id = :{$catKey})";
+                    }
+                }
+                $docConditions[] = '(' . implode(' OR ', $orParts) . ')';
+
+                $userSedes = $usuario->getSedesIds();
+                if (!empty($userSedes)) {
+                    $sPlaceholders = [];
+                    foreach ($userSedes as $idx => $sId) {
+                        $key = "resp_cat_user_sede_{$idx}";
+                        $sPlaceholders[] = ":{$key}";
+                        $params[$key] = $sId;
+                    }
+                    $docConditions[] = 'd.sede_id IN (' . implode(',', $sPlaceholders) . ')';
+                }
             }
         }
 

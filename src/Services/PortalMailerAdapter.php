@@ -21,9 +21,32 @@ class PortalMailerAdapter implements MailerInterface
             require_once $socketLabsFile;
         }
 
+        $tenantContextFile = dirname(__DIR__, 3) . '/portal/app/core/TenantContext.php';
+        if (file_exists($tenantContextFile) && !class_exists('\\TenantContext')) {
+            require_once $tenantContextFile;
+        }
+
         if (class_exists('\\SocketLabsMailer')) {
+            $subdomain = 'portal';
+            $tenantName = 'Red Itínere';
+
+            if (class_exists('\\TenantContext') && \TenantContext::hasCurrentTenant()) {
+                $tenant = \TenantContext::getCurrentTenant();
+                if ($tenant && !empty($tenant->subdomain)) {
+                    $subdomain = strtolower(trim((string)$tenant->subdomain));
+                }
+                if ($tenant && !empty($tenant->name)) {
+                    $tenantName = trim((string)$tenant->name);
+                }
+            } elseif (defined('RESOLVED_SUBDOMAIN') && RESOLVED_SUBDOMAIN) {
+                $subdomain = strtolower(trim((string)RESOLVED_SUBDOMAIN));
+            } elseif (!empty($_SESSION['user_tenant'])) {
+                $subdomain = strtolower(trim((string)$_SESSION['user_tenant']));
+            }
+
             $options = [
-                'from_name' => 'Mesa Digital — Red Itínere',
+                'from_email' => "mesa-{$subdomain}@appcolegios.org",
+                'from_name' => "Mesa Digital — {$tenantName}",
             ];
             $res = \SocketLabsMailer::send($to, $subject, $htmlBody, $options);
             if (!empty($res['success'])) {

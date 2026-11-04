@@ -165,10 +165,10 @@ foreach ($usuarios as $u) {
                         <option value="administrador">Administrador</option>
                     </select>
                 </div>
-                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'" class="space-y-1.5">
+                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede' || rol === 'responsable_categoria'" class="space-y-1.5">
                     <label class="form-label flex items-center justify-between">
-                        <span>Sedes Asignadas <span class="text-danger-500">*</span></span>
-                        <span class="text-[11px] text-ink-400 font-normal">Podés marcar una o varias</span>
+                        <span>Sedes Asignadas <span x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'" class="text-danger-500">*</span></span>
+                        <span class="text-[11px] text-ink-400 font-normal" x-text="rol === 'responsable_categoria' ? 'Opcional (vacío = todas las sedes)' : 'Podés marcar una o varias'"></span>
                     </label>
                     <div class="max-h-48 overflow-y-auto p-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-800/40 space-y-1">
                         <?php foreach ($sedes as $s): ?>
@@ -221,10 +221,10 @@ foreach ($usuarios as $u) {
                         <option value="administrador">Administrador</option>
                     </select>
                 </div>
-                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'" class="space-y-1.5">
+                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede' || rol === 'responsable_categoria'" class="space-y-1.5">
                     <label class="form-label flex items-center justify-between">
-                        <span>Sedes Asignadas <span class="text-danger-500">*</span></span>
-                        <span class="text-[11px] text-ink-400 font-normal">Podés marcar una o varias</span>
+                        <span>Sedes Asignadas <span x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'" class="text-danger-500">*</span></span>
+                        <span class="text-[11px] text-ink-400 font-normal" x-text="rol === 'responsable_categoria' ? 'Opcional (vacío = todas las sedes)' : 'Podés marcar una o varias'"></span>
                     </label>
                     <div class="max-h-48 overflow-y-auto p-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-800/40 space-y-1">
                         <?php foreach ($sedes as $s): ?>

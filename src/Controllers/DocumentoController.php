@@ -14,6 +14,7 @@ use App\Repositories\DocumentoRepository;
 use App\Repositories\SedeRepository;
 use App\Repositories\TipoDocumentoRepository;
 use App\Services\DocumentoService;
+use App\Services\NotificacionService;
 use App\Services\StorageInterface;
 use App\Support\View;
 
@@ -31,7 +32,8 @@ class DocumentoController
         private CaracterRemitenteRepository $caracterRemitenteRepository,
         private DocumentoService $documentoService,
         private StorageInterface $storage,
-        private View $view
+        private View $view,
+        private ?NotificacionService $notificacionService = null
     ) {}
 
     public function index(): void
@@ -59,7 +61,7 @@ class DocumentoController
         $totalPages = max(1, (int)ceil($result['total'] / $limit));
 
         $sedes = $this->sedeRepository->findAll(true);
-        if ($user && ($user->isRecepcion() || $user->isDireccion())) {
+        if ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isResponsable())) {
             $sedes = array_values(array_filter($sedes, fn($s) => $user->canAccessSede((int)$s->id)));
         }
         $categorias = $this->categoriaRepository->findAll(true, false);
@@ -84,7 +86,7 @@ class DocumentoController
         $user = $this->authProvider->currentUser();
 
         $sedes = $this->sedeRepository->findAll(true);
-        if ($user && ($user->isRecepcion() || $user->isDireccion())) {
+        if ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isResponsable())) {
             $sedes = array_values(array_filter($sedes, fn($s) => $user->canAccessSede((int)$s->id)));
         }
         $categorias = $this->categoriaRepository->findAll(true, true);
@@ -126,6 +128,7 @@ class DocumentoController
         try {
             $files = $_FILES['adjuntos'] ?? $_FILES['adjunto'] ?? [];
             $documento = $this->documentoService->crear($_POST, $files, $user);
+            $this->notificacionService?->procesarCola(50, (int)$documento->id);
 
             flash('success', "Documento {$documento->codigo} registrado exitosamente. Se notificó a los responsables asignados.");
             redirect("/documentos/{$documento->id}");
@@ -196,6 +199,7 @@ class DocumentoController
 
         try {
             $this->documentoService->reclasificar($id, $nuevaCatId, $motivo, $user);
+            $this->notificacionService?->procesarCola(50, $id);
             flash('success', 'Documento reclasificado exitosamente. Se notificó a los nuevos responsables.');
         } catch (\Throwable $e) {
             flash('error', $e->getMessage());
@@ -245,6 +249,7 @@ class DocumentoController
 
         try {
             $this->documentoService->resolver($id, $constancia, $user);
+            $this->notificacionService?->procesarCola(50, $id);
             flash('success', 'Documento marcado como Resuelto.');
         } catch (\Throwable $e) {
             flash('error', $e->getMessage());

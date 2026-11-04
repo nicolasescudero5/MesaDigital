@@ -73,7 +73,7 @@ CREATE TABLE `categoria_responsables` (
   `modificado_el` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
   `modificado_por` int unsigned DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uq_categoria_email` (`categoria_id`,`email`),
+  KEY `idx_categoria_responsables_cat_email` (`categoria_id`,`email`,`sede_id`),
   KEY `idx_categoria_responsables_usuario` (`usuario_id`),
   KEY `idx_categoria_responsables_sede` (`sede_id`),
   CONSTRAINT `categoria_responsables_ibfk_1` FOREIGN KEY (`categoria_id`) REFERENCES `categorias` (`id`) ON DELETE CASCADE,

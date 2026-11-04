@@ -137,9 +137,9 @@ class NotificacionService
      * Procesa la cola de notificaciones pendientes
      * @return array{procesadas: int, enviadas: int, fallidas: int}
      */
-    public function procesarCola(int $limite = 50): array
+    public function procesarCola(int $limite = 50, ?int $documentoId = null): array
     {
-        $pendientes = $this->notificacionRepository->findPendientes($limite);
+        $pendientes = $this->notificacionRepository->findPendientes($limite, $documentoId);
         $enviadas = 0;
         $fallidas = 0;
 

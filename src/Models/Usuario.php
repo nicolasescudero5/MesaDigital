@@ -104,11 +104,16 @@ class Usuario
 
     public function canAccessSede(int $sedeId): bool
     {
-        if ($this->isAdministrador() || $this->isSupervision() || $this->isResponsable()) {
+        if ($this->isAdministrador() || $this->isSupervision()) {
             return true;
         }
 
-        return in_array($sedeId, $this->getSedesIds(), true);
+        $sedesIds = $this->getSedesIds();
+        if ($this->isResponsable() && empty($sedesIds)) {
+            return true;
+        }
+
+        return in_array($sedeId, $sedesIds, true);
     }
 
     public function getSedesNombres(): string
