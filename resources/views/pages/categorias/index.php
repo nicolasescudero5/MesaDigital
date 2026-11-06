@@ -147,8 +147,36 @@ foreach ($sedes as $s) {
         const selectedUser = this.dirUserId ? this.activeUsers[this.dirUserId] : null;
         const isShowingSelectedLabel = selectedUser && (this.dirSearchQuery === (selectedUser.nombre + " (" + selectedUser.email + ")"));
         const effectiveQuery = isShowingSelectedLabel ? "" : q;
+        const editingId = this.editingDirector ? Number(this.editingDirector.id) : null;
+        const currentNivel = (this.dirCargoNivel || "").trim().toLowerCase();
 
         const all = Object.values(this.activeUsers).filter(u => {
+            const uid = Number(u.id);
+            if (editingId !== uid) {
+                const userSedes = (u.sedes_ids || []).map(Number);
+                // Excluir si ya está asignado como director_sede o director_nivel en la sede seleccionada
+                if (this.dirSedesIds.length > 0 && (u.rol === this.dirRol || u.rol === "direccion_sede" || u.rol === "direccion_nivel")) {
+                    const alreadyInSelectedSedes = this.dirSedesIds.every(sid => userSedes.includes(Number(sid)));
+                    if (alreadyInSelectedSedes) {
+                        if (this.dirRol === "direccion_sede" || u.rol === "direccion_sede") {
+                            return false;
+                        }
+                        if (this.dirRol === "direccion_nivel" && u.rol === "direccion_nivel") {
+                            if (!currentNivel || (u.cargo_nivel || "").trim().toLowerCase() === currentNivel) {
+                                return false;
+                            }
+                        }
+                    }
+                } else if (this.dirSedesIds.length === 0 && u.rol === this.dirRol && userSedes.length > 0) {
+                    if (this.dirRol === "direccion_sede") {
+                        return false;
+                    }
+                    if (this.dirRol === "direccion_nivel" && (!currentNivel || (u.cargo_nivel || "").trim().toLowerCase() === currentNivel)) {
+                        return false;
+                    }
+                }
+            }
+
             if (!effectiveQuery) return true;
             const haystack = ((u.nombre || "") + " " + (u.email || "") + " " + (u.rol || "") + " " + (u.cargo_nivel || "")).toLowerCase();
             return haystack.includes(effectiveQuery);
@@ -537,9 +565,10 @@ foreach ($sedes as $s) {
                         </button>
                     </div>
 
-                    <!-- Dropdown de resultados filtrados -->
+                    <!-- Dropdown de resultados filtrados (máximo 5 opciones visibles con scroll) -->
                     <div x-show="dirDropdownOpen"
-                         class="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-700 shadow-lg divide-y divide-ink-100 dark:divide-ink-800">
+                         style="max-height: 210px; overflow-y: auto;"
+                         class="absolute z-50 mt-1 w-full overflow-y-auto rounded-xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-700 shadow-lg divide-y divide-ink-100 dark:divide-ink-800">
                         <template x-if="getFilteredDirectorUsers().length === 0">
                             <div class="p-3 text-xs text-ink-500 italic text-center">
                                 No se encontraron usuarios activos con ese criterio.
@@ -723,7 +752,8 @@ foreach ($sedes as $s) {
                                 </button>
                             </div>
                             <div x-show="respDropdownOpen"
-                                 class="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-700 shadow-lg divide-y divide-ink-100 dark:divide-ink-800">
+                                 style="max-height: 210px; overflow-y: auto;"
+                                 class="absolute z-50 mt-1 w-full overflow-y-auto rounded-xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-700 shadow-lg divide-y divide-ink-100 dark:divide-ink-800">
                                 <template x-if="getFilteredRespUsers().length === 0">
                                     <div class="p-2.5 text-xs text-ink-500 italic text-center">
                                         Sin coincidencias.
