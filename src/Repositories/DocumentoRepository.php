@@ -62,6 +62,63 @@ class DocumentoRepository
     }
 
     /**
+     * Otorga permiso de visualización explícito sobre un documento a un Director de Sede o Director de Nivel
+     */
+    public function grantAcceso(int $documentoId, int $usuarioId, string $tipoAcceso, ?int $creadoPor = null): bool
+    {
+        $check = $this->pdo->prepare("SELECT id FROM documento_accesos WHERE documento_id = :doc_id AND usuario_id = :user_id");
+        $check->execute(['doc_id' => $documentoId, 'user_id' => $usuarioId]);
+        if ($check->fetchColumn()) {
+            return true;
+        }
+
+        $stmt = $this->pdo->prepare("
+            INSERT INTO documento_accesos (documento_id, usuario_id, tipo_acceso, creado_por)
+            VALUES (:documento_id, :usuario_id, :tipo_acceso, :creado_por)
+        ");
+        return $stmt->execute([
+            'documento_id' => $documentoId,
+            'usuario_id' => $usuarioId,
+            'tipo_acceso' => $tipoAcceso,
+            'creado_por' => $creadoPor,
+        ]);
+    }
+
+    /**
+     * Verifica si un usuario tiene permiso otorgado en documento_accesos
+     */
+    public function hasAcceso(int $documentoId, int $usuarioId): bool
+    {
+        try {
+            $stmt = $this->pdo->prepare("SELECT COUNT(*) FROM documento_accesos WHERE documento_id = :doc_id AND usuario_id = :user_id");
+            $stmt->execute(['doc_id' => $documentoId, 'user_id' => $usuarioId]);
+            return ((int)$stmt->fetchColumn()) > 0;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Obtiene la lista de usuarios con acceso explícito al documento (Directores de Sede y de Nivel notificados)
+     */
+    public function getAccesosByDocumentoId(int $documentoId): array
+    {
+        try {
+            $stmt = $this->pdo->prepare("
+                SELECT da.*, u.nombre AS usuario_nombre, u.email AS usuario_email, u.rol AS usuario_rol, u.cargo_nivel
+                FROM documento_accesos da
+                JOIN usuarios u ON da.usuario_id = u.id
+                WHERE da.documento_id = :doc_id
+                ORDER BY da.tipo_acceso ASC, u.nombre ASC
+            ");
+            $stmt->execute(['doc_id' => $documentoId]);
+            return $stmt->fetchAll() ?: [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
      * Verifica si un usuario tiene acceso para ver un documento específico
      */
     public function canUserView(Usuario $usuario, Documento $documento): bool
@@ -70,8 +127,18 @@ class DocumentoRepository
             return true;
         }
 
-        if ($usuario->isRecepcion() || $usuario->isDireccion()) {
+        if ($usuario->isRecepcion()) {
             return $usuario->canAccessSede((int)$documento->sede_id);
+        }
+
+        if ($usuario->isDireccion() || $usuario->isDireccionNivel()) {
+            if (!$usuario->canAccessSede((int)$documento->sede_id)) {
+                return false;
+            }
+            if ((int)$documento->creado_por === (int)$usuario->id) {
+                return true;
+            }
+            return $this->hasAcceso((int)$documento->id, (int)$usuario->id);
         }
 
         if ($usuario->isResponsable()) {
@@ -167,7 +234,7 @@ class DocumentoRepository
         // 1. Control de alcance RBAC obligatorio (§ 4.1)
         if ($usuario->isAdministrador() || $usuario->isSupervision()) {
             // Ve todo el sistema
-        } elseif ($usuario->isRecepcion() || $usuario->isDireccion()) {
+        } elseif ($usuario->isRecepcion()) {
             $sedes = $usuario->getSedesIds();
             if (empty($sedes)) {
                 $clauses[] = "1 = 0";
@@ -179,6 +246,22 @@ class DocumentoRepository
                     $params[$key] = $sId;
                 }
                 $clauses[] = "d.sede_id IN (" . implode(',', $placeholders) . ")";
+            }
+        } elseif ($usuario->isDireccion() || $usuario->isDireccionNivel()) {
+            $sedes = $usuario->getSedesIds();
+            if (empty($sedes)) {
+                $clauses[] = "1 = 0";
+            } else {
+                $placeholders = [];
+                foreach ($sedes as $idx => $sId) {
+                    $key = "scope_dir_sede_{$idx}";
+                    $placeholders[] = ":{$key}";
+                    $params[$key] = $sId;
+                }
+                $clauses[] = "d.sede_id IN (" . implode(',', $placeholders) . ")";
+                $params['dir_creado_por'] = (int)$usuario->id;
+                $params['dir_acceso_uid'] = (int)$usuario->id;
+                $clauses[] = "(d.creado_por = :dir_creado_por OR EXISTS (SELECT 1 FROM documento_accesos da WHERE da.documento_id = d.id AND da.usuario_id = :dir_acceso_uid))";
             }
         } elseif ($usuario->isResponsable()) {
             $asignaciones = $this->categoriaRepository->getAsignacionesResponsableByUsuarioId((int)$usuario->id);
@@ -472,7 +555,7 @@ class DocumentoRepository
 
         if ($usuario->isAdministrador() || $usuario->isSupervision()) {
             // Ve todas las sedes y todos los documentos activos
-        } elseif ($usuario->isRecepcion() || $usuario->isDireccion()) {
+        } elseif ($usuario->isRecepcion() || $usuario->isDireccion() || $usuario->isDireccionNivel()) {
             // Solo puede ver las sedes que tiene asociadas
             $sedes = $usuario->getSedesIds();
             if (empty($sedes)) {
@@ -485,6 +568,12 @@ class DocumentoRepository
                     $params[$key] = $sId;
                 }
                 $sedeConditions[] = 's.id IN (' . implode(',', $placeholders) . ')';
+            }
+
+            if ($usuario->isDireccion() || $usuario->isDireccionNivel()) {
+                $params['dir_b_creado'] = (int)$usuario->id;
+                $params['dir_b_acceso'] = (int)$usuario->id;
+                $docConditions[] = '(d.creado_por = :dir_b_creado OR EXISTS (SELECT 1 FROM documento_accesos da WHERE da.documento_id = d.id AND da.usuario_id = :dir_b_acceso))';
             }
         } elseif ($usuario->isResponsable()) {
             $asignaciones = $this->categoriaRepository->getAsignacionesResponsableByUsuarioId((int)$usuario->id);
@@ -547,7 +636,7 @@ class DocumentoRepository
 
         if ($usuario->isAdministrador() || $usuario->isSupervision()) {
             // Ve todo el sistema
-        } elseif ($usuario->isRecepcion() || $usuario->isDireccion()) {
+        } elseif ($usuario->isRecepcion() || $usuario->isDireccion() || $usuario->isDireccionNivel()) {
             // Solo documentos de sus sedes asignadas
             $sedes = $usuario->getSedesIds();
             if (empty($sedes)) {
@@ -560,6 +649,12 @@ class DocumentoRepository
                     $params[$key] = $sId;
                 }
                 $docConditions[] = 'd.sede_id IN (' . implode(',', $placeholders) . ')';
+            }
+
+            if ($usuario->isDireccion() || $usuario->isDireccionNivel()) {
+                $params['dir_cat_creado'] = (int)$usuario->id;
+                $params['dir_cat_acceso'] = (int)$usuario->id;
+                $docConditions[] = '(d.creado_por = :dir_cat_creado OR EXISTS (SELECT 1 FROM documento_accesos da WHERE da.documento_id = d.id AND da.usuario_id = :dir_cat_acceso))';
             }
         } elseif ($usuario->isResponsable()) {
             $asignaciones = $this->categoriaRepository->getAsignacionesResponsableByUsuarioId((int)$usuario->id);

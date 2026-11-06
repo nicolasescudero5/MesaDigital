@@ -30,21 +30,22 @@ class NotificacionService
 
     /**
      * Encola notificación por nuevo documento cargado
+     * @param string[] $emailsAdicionales Correos adicionales (ej. Director de Sede y Directores de Nivel seleccionados)
      */
-    public function notificarCarga(Documento $documento, ?string $destinatarioEspecifico = null): void
+    public function notificarCarga(Documento $documento, ?string $destinatarioEspecifico = null, array $emailsAdicionales = []): void
     {
+        $responsableEmails = [];
+
         if (!empty($destinatarioEspecifico)) {
-            $this->notificacionRepository->create(new NotificacionEnviada(
-                documento_id: (int)$documento->id,
-                destinatario_email: $destinatarioEspecifico,
-                tipo_evento: 'Documento_cargado'
-            ));
-            return;
+            $responsableEmails[] = strtolower(trim($destinatarioEspecifico));
+        } else {
+            $responsableEmails = array_map(
+                fn($e) => strtolower(trim((string)$e)),
+                $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id, (int)$documento->sede_id)
+            );
         }
 
-        $emails = $this->categoriaRepository->getEmailsResponsablesActivos($documento->categoria_id, (int)$documento->sede_id);
-
-        if (empty($emails)) {
+        if (empty($responsableEmails)) {
             // Caso especial (§ 4.6 y § 8.1): Alerta al Administrador si la categoría no tiene responsables
             $adminUsers = array_filter(
                 $this->usuarioRepository->findAll(true),
@@ -58,10 +59,15 @@ class NotificacionService
                     tipo_evento: 'Sin_responsable'
                 ));
             }
-            return;
         }
 
-        foreach ($emails as $email) {
+        $extraClean = array_filter(array_map(fn($e) => strtolower(trim((string)$e)), $emailsAdicionales));
+        $todosLosDestinatarios = array_values(array_unique(array_merge($responsableEmails, $extraClean)));
+
+        foreach ($todosLosDestinatarios as $email) {
+            if ($email === '') {
+                continue;
+            }
             $this->notificacionRepository->create(new NotificacionEnviada(
                 documento_id: (int)$documento->id,
                 destinatario_email: $email,

@@ -342,4 +342,99 @@ class RbacScopeTest extends TestCase
         $this->assertTrue($this->documentoRepo->canUserView($loadedResp, $doc2));
         $this->assertFalse($this->documentoRepo->canUserView($loadedResp, $doc3));
     }
+
+    /**
+     * Directores de Sede y Directores de Nivel: notificaciones opcionales y permisos por documento
+     */
+    public function test_directores_sede_y_nivel_notificaciones_y_permisos_por_documento(): void
+    {
+        $recepcionSede1 = $this->usuarioRepo->findById(2); // Recepción Benavidez (Sede 1)
+        $directorSede1 = $this->usuarioRepo->findById(4);  // Dirección Benavidez (Sede 1, email: direccion.benavidez@reditinere.com)
+
+        // Crear dos Directores de Nivel en Sede 1 y uno en Sede 2
+        $dirNivelPrimariaId = $this->usuarioRepo->create(new \App\Models\Usuario(
+            nombre: 'Directora Nivel Primario Benavidez',
+            email: 'primaria.benavidez@reditinere.com',
+            rol: 'direccion_nivel',
+            cargo_nivel: 'Nivel Primario',
+            activo: true
+        ), [1]);
+        $dirNivelPrimaria = $this->usuarioRepo->findById($dirNivelPrimariaId);
+
+        $dirNivelSecundariaId = $this->usuarioRepo->create(new \App\Models\Usuario(
+            nombre: 'Director Nivel Secundario Benavidez',
+            email: 'secundaria.benavidez@reditinere.com',
+            rol: 'direccion_nivel',
+            cargo_nivel: 'Nivel Secundario',
+            activo: true
+        ), [1]);
+        $dirNivelSecundaria = $this->usuarioRepo->findById($dirNivelSecundariaId);
+
+        $dirNivelEscobarId = $this->usuarioRepo->create(new \App\Models\Usuario(
+            nombre: 'Directora Nivel Inicial Escobar',
+            email: 'inicial.escobar@reditinere.com',
+            rol: 'direccion_nivel',
+            cargo_nivel: 'Nivel Inicial',
+            activo: true
+        ), [2]);
+        $dirNivelEscobar = $this->usuarioRepo->findById($dirNivelEscobarId);
+
+        $files = [['name' => 'nota.pdf', 'type' => 'application/pdf', 'tmp_name' => '/tmp/nota.pdf', 'error' => UPLOAD_ERR_OK, 'size' => 2048]];
+
+        // 1. Documento cargado SIN notificar a Director de Sede ni Director de Nivel
+        $docSinDirectores = $this->documentoService->crear([
+            'sede_id' => 1,
+            'categoria_id' => 1,
+            'tipo_documento_id' => 1,
+            'remitente' => 'Familia García',
+            'asunto' => 'Consulta general',
+            'descripcion' => 'Documento solo para el responsable de categoría',
+            'fecha_recepcion' => date('Y-m-d')
+        ], $files, $recepcionSede1);
+
+        $this->assertFalse($this->documentoRepo->canUserView($directorSede1, $docSinDirectores));
+        $this->assertFalse($this->documentoRepo->canUserView($dirNivelPrimaria, $docSinDirectores));
+        $this->assertFalse($this->documentoRepo->canUserView($dirNivelSecundaria, $docSinDirectores));
+
+        // 2. Documento cargado marcando "Notificar a Director de Sede" y "Notificar a Director de Nivel" (seleccionando solo Nivel Primario)
+        $docConDirectores = $this->documentoService->crear([
+            'sede_id' => 1,
+            'categoria_id' => 1,
+            'tipo_documento_id' => 1,
+            'remitente' => 'Familia Rodríguez',
+            'asunto' => 'Nota urgente para Dirección',
+            'descripcion' => 'Requiere conocimiento de Dirección de Sede y Nivel Primario',
+            'fecha_recepcion' => date('Y-m-d'),
+            'notificar_director_sede' => '1',
+            'notificar_director_nivel' => '1',
+            'directores_nivel_ids' => [$dirNivelPrimariaId, $dirNivelEscobarId] // Escobar debe ser ignorado por no pertenecer a Sede 1
+        ], $files, $recepcionSede1);
+
+        // Permisos canUserView
+        $this->assertTrue($this->documentoRepo->canUserView($directorSede1, $docConDirectores));
+        $this->assertTrue($this->documentoRepo->canUserView($dirNivelPrimaria, $docConDirectores));
+        $this->assertFalse($this->documentoRepo->canUserView($dirNivelSecundaria, $docConDirectores));
+        $this->assertFalse($this->documentoRepo->canUserView($dirNivelEscobar, $docConDirectores));
+
+        // Visibilidad en Bandeja (findPaginatedWithScope)
+        $bandejaDirSede = $this->documentoRepo->findPaginatedWithScope($directorSede1, [], 100, 0);
+        $idsDirSede = array_map(fn($d) => $d->id, $bandejaDirSede['items']);
+        $this->assertContains($docConDirectores->id, $idsDirSede);
+        $this->assertNotContains($docSinDirectores->id, $idsDirSede);
+
+        $bandejaDirPrimaria = $this->documentoRepo->findPaginatedWithScope($dirNivelPrimaria, [], 100, 0);
+        $idsDirPrimaria = array_map(fn($d) => $d->id, $bandejaDirPrimaria['items']);
+        $this->assertContains($docConDirectores->id, $idsDirPrimaria);
+        $this->assertNotContains($docSinDirectores->id, $idsDirPrimaria);
+
+        // Procesar cola de notificaciones y verificar destinatarios enviados
+        $this->notificacionService->procesarCola(50, (int)$docConDirectores->id);
+        $emailsEnviados = array_column($this->mockMailer->sent, 'to');
+
+        $this->assertContains('legales@reditinere.com', $emailsEnviados);
+        $this->assertContains('direccion.benavidez@reditinere.com', $emailsEnviados);
+        $this->assertContains('primaria.benavidez@reditinere.com', $emailsEnviados);
+        $this->assertNotContains('secundaria.benavidez@reditinere.com', $emailsEnviados);
+        $this->assertNotContains('inicial.escobar@reditinere.com', $emailsEnviados);
+    }
 }

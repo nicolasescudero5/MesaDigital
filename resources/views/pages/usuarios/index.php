@@ -17,6 +17,7 @@ foreach ($usuarios as $u) {
     nombre: "",
     email: "",
     rol: "recepcion_sede",
+    cargoNivel: "",
     sedesIds: [],
     activo: true,
     edit(id) {
@@ -26,6 +27,7 @@ foreach ($usuarios as $u) {
         this.nombre = u.nombre;
         this.email = u.email;
         this.rol = u.rol;
+        this.cargoNivel = u.cargo_nivel || "";
         this.sedesIds = (u.sedes_ids && u.sedes_ids.length > 0) 
             ? u.sedes_ids.map(Number) 
             : (u.sede_id ? [Number(u.sede_id)] : []);
@@ -46,12 +48,12 @@ foreach ($usuarios as $u) {
                 Usuarios y Permisos (RBAC)
             </h1>
             <p class="text-sm text-ink-500 mt-1 font-medium">
-                Gestión de accesos, roles institucionales y sedes asignadas
+                Gestión de accesos, roles institucionales, directores de sede y de nivel
             </p>
         </div>
 
         <div>
-            <button type="button" @click="modalNew = true" class="btn-primary inline-flex items-center gap-2 shadow-sm font-semibold text-white">
+            <button type="button" @click="modalNew = true; rol = 'recepcion_sede'; cargoNivel = '';" class="btn-primary inline-flex items-center gap-2 shadow-sm font-semibold text-white">
                 <?= icon('user-plus', 'w-4 h-4 text-white') ?>
                 <span>Nuevo Usuario</span>
             </button>
@@ -85,9 +87,16 @@ foreach ($usuarios as $u) {
                                 <div class="text-xs text-ink-500 dark:text-ink-400"><?= e($u->email) ?></div>
                             </td>
                             <td class="py-3.5 px-4">
-                                <span class="pill pill-recibido text-xs font-semibold">
-                                    <?= str_replace('_', ' ', $u->rol) ?>
-                                </span>
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="pill pill-recibido text-xs font-semibold">
+                                        <?= str_replace('_', ' ', $u->rol) ?>
+                                    </span>
+                                    <?php if ($u->cargo_nivel): ?>
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
+                                            <?= e($u->cargo_nivel) ?>
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td class="py-3.5 px-4 text-xs font-medium">
                                 <?php if (!empty($u->sedes_nombres)): ?>
@@ -160,15 +169,20 @@ foreach ($usuarios as $u) {
                     <select name="rol" x-model="rol" required class="form-select">
                         <option value="recepcion_sede">Recepción de Sede</option>
                         <option value="responsable_categoria">Responsable de Categoría</option>
-                        <option value="direccion_sede">Dirección de Sede</option>
+                        <option value="direccion_sede">Director de Sede (Dirección de Sede)</option>
+                        <option value="direccion_nivel">Director de Nivel (Dirección de Nivel)</option>
                         <option value="supervision_general">Supervisión General</option>
                         <option value="administrador">Administrador</option>
                     </select>
                 </div>
-                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede' || rol === 'responsable_categoria'" class="space-y-1.5">
+                <div x-show="rol === 'direccion_nivel'">
+                    <label class="form-label">Nivel / Cargo en la Sede</label>
+                    <input type="text" name="cargo_nivel" x-model="cargoNivel" class="form-input" placeholder="Ej: Nivel Inicial, Nivel Primario, Nivel Secundario...">
+                </div>
+                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede' || rol === 'direccion_nivel' || rol === 'responsable_categoria'" class="space-y-1.5">
                     <label class="form-label flex items-center justify-between">
-                        <span>Sedes Asignadas <span x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'" class="text-danger-500">*</span></span>
-                        <span class="text-[11px] text-ink-400 font-normal" x-text="rol === 'responsable_categoria' ? 'Opcional (vacío = todas las sedes)' : 'Podés marcar una o varias'"></span>
+                        <span>Sedes Asignadas <span x-show="rol === 'recepcion_sede' || rol === 'direccion_sede' || rol === 'direccion_nivel'" class="text-danger-500">*</span></span>
+                        <span class="text-[11px] text-ink-400 font-normal" x-text="rol === 'responsable_categoria' ? 'Opcional (vacío = todas las sedes)' : 'Seleccioná la sede correspondiente'"></span>
                     </label>
                     <div class="max-h-48 overflow-y-auto p-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-800/40 space-y-1">
                         <?php foreach ($sedes as $s): ?>
@@ -216,15 +230,20 @@ foreach ($usuarios as $u) {
                     <select name="rol" x-model="rol" required class="form-select">
                         <option value="recepcion_sede">Recepción de Sede</option>
                         <option value="responsable_categoria">Responsable de Categoría</option>
-                        <option value="direccion_sede">Dirección de Sede</option>
+                        <option value="direccion_sede">Director de Sede (Dirección de Sede)</option>
+                        <option value="direccion_nivel">Director de Nivel (Dirección de Nivel)</option>
                         <option value="supervision_general">Supervisión General</option>
                         <option value="administrador">Administrador</option>
                     </select>
                 </div>
-                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede' || rol === 'responsable_categoria'" class="space-y-1.5">
+                <div x-show="rol === 'direccion_nivel'">
+                    <label class="form-label">Nivel / Cargo en la Sede</label>
+                    <input type="text" name="cargo_nivel" x-model="cargoNivel" class="form-input" placeholder="Ej: Nivel Inicial, Nivel Primario, Nivel Secundario...">
+                </div>
+                <div x-show="rol === 'recepcion_sede' || rol === 'direccion_sede' || rol === 'direccion_nivel' || rol === 'responsable_categoria'" class="space-y-1.5">
                     <label class="form-label flex items-center justify-between">
-                        <span>Sedes Asignadas <span x-show="rol === 'recepcion_sede' || rol === 'direccion_sede'" class="text-danger-500">*</span></span>
-                        <span class="text-[11px] text-ink-400 font-normal" x-text="rol === 'responsable_categoria' ? 'Opcional (vacío = todas las sedes)' : 'Podés marcar una o varias'"></span>
+                        <span>Sedes Asignadas <span x-show="rol === 'recepcion_sede' || rol === 'direccion_sede' || rol === 'direccion_nivel'" class="text-danger-500">*</span></span>
+                        <span class="text-[11px] text-ink-400 font-normal" x-text="rol === 'responsable_categoria' ? 'Opcional (vacío = todas las sedes)' : 'Seleccioná la sede correspondiente'"></span>
                     </label>
                     <div class="max-h-48 overflow-y-auto p-2.5 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/50 dark:bg-ink-800/40 space-y-1">
                         <?php foreach ($sedes as $s): ?>

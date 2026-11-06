@@ -26,16 +26,22 @@ class CategoriaController
         $user = $this->authProvider->currentUser();
         $categorias = $this->categoriaRepository->findAll(false, true);
         $sedes = $this->sedeRepository->findAll(true);
+        $allActiveUsers = $this->usuarioRepository->findAll(true);
         $usuariosResponsables = array_filter(
-            $this->usuarioRepository->findAll(true),
+            $allActiveUsers,
             fn($u) => $u->isResponsable() || $u->isAdministrador()
         );
+        $directoresSede = $this->usuarioRepository->findByRol('direccion_sede', true);
+        $directoresNivel = $this->usuarioRepository->findByRol('direccion_nivel', true);
 
         echo $this->view->render('categorias/index', [
             'user' => $user,
             'categorias' => $categorias,
             'sedes' => $sedes,
+            'allActiveUsers' => $allActiveUsers,
             'usuariosResponsables' => $usuariosResponsables,
+            'directoresSede' => $directoresSede,
+            'directoresNivel' => $directoresNivel,
         ], 'app');
     }
 
@@ -226,6 +232,92 @@ class CategoriaController
             flash('success', "Responsable removido de la categoría.");
         } catch (\Throwable $e) {
             flash('error', 'Error al remover responsable: ' . $e->getMessage());
+        }
+
+        redirect('/categorias');
+    }
+
+    public function assignDirector(): void
+    {
+        $user = $this->authProvider->currentUser();
+        $usuarioId = (int)($_POST['usuario_id'] ?? 0);
+        $rol = (string)($_POST['rol'] ?? 'direccion_sede');
+        $cargoNivel = trim((string)($_POST['cargo_nivel'] ?? ''));
+        $mode = (string)($_POST['mode'] ?? 'add');
+
+        if (!in_array($rol, ['direccion_sede', 'direccion_nivel'], true)) {
+            flash('error', 'Rol de director no válido.');
+            redirect('/categorias');
+        }
+
+        if ($usuarioId <= 0) {
+            flash('error', 'Seleccioná un usuario activo del sistema para asignarlo.');
+            redirect('/categorias');
+        }
+
+        $sedesIds = isset($_POST['sedes_ids'])
+            ? array_values(array_unique(array_filter(array_map('intval', (array)$_POST['sedes_ids']))))
+            : [];
+
+        if (empty($sedesIds)) {
+            flash('error', 'Debés seleccionar al menos una sede para asignar al director.');
+            redirect('/categorias');
+        }
+
+        $targetUser = $this->usuarioRepository->findById($usuarioId);
+        if (!$targetUser || !$targetUser->activo) {
+            flash('error', 'El usuario seleccionado no existe o no se encuentra activo.');
+            redirect('/categorias');
+        }
+
+        try {
+            if ($mode !== 'edit') {
+                $sedesIds = array_values(array_unique(array_merge($targetUser->getSedesIds(), $sedesIds)));
+            }
+            $targetUser->rol = $rol;
+            $targetUser->cargo_nivel = $rol === 'direccion_nivel'
+                ? ($cargoNivel !== '' ? $cargoNivel : $targetUser->cargo_nivel)
+                : null;
+            $targetUser->sede_id = $sedesIds[0] ?? null;
+            $targetUser->sedes_ids = $sedesIds;
+            $targetUser->modificado_por = (int)$user->id;
+
+            $this->usuarioRepository->update($targetUser, $sedesIds);
+
+            $labelRol = $rol === 'direccion_nivel' ? 'Director de Nivel' : 'Director de Sede';
+            flash('success', "{$targetUser->nombre} asignado como {$labelRol}.");
+        } catch (\Throwable $e) {
+            flash('error', 'Error al asignar director: ' . $e->getMessage());
+        }
+
+        redirect('/categorias');
+    }
+
+    public function removeDirectorSede(): void
+    {
+        $user = $this->authProvider->currentUser();
+        $usuarioId = (int)($_POST['usuario_id'] ?? 0);
+        $sedeId = (int)($_POST['sede_id'] ?? 0);
+
+        $targetUser = $this->usuarioRepository->findById($usuarioId);
+        if (!$targetUser) {
+            flash('error', 'Usuario no encontrado.');
+            redirect('/categorias');
+        }
+
+        try {
+            $remainingSedes = array_values(array_filter(
+                $targetUser->getSedesIds(),
+                fn(int $id) => $id !== $sedeId
+            ));
+            $targetUser->sede_id = $remainingSedes[0] ?? null;
+            $targetUser->sedes_ids = $remainingSedes;
+            $targetUser->modificado_por = (int)$user->id;
+
+            $this->usuarioRepository->update($targetUser, $remainingSedes);
+            flash('success', "Se quitó a {$targetUser->nombre} de la sede seleccionada.");
+        } catch (\Throwable $e) {
+            flash('error', 'Error al quitar asignación: ' . $e->getMessage());
         }
 
         redirect('/categorias');

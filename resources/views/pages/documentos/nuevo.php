@@ -35,6 +35,32 @@ foreach ($categorias as $c) {
         'responsables' => $resps,
     ];
 }
+
+$directoresSedeList = [];
+foreach ($directoresSede ?? [] as $ds) {
+    $directoresSedeList[] = [
+        'id' => (int)$ds->id,
+        'nombre' => $ds->nombre,
+        'email' => $ds->email,
+        'sedes_ids' => $ds->getSedesIds(),
+    ];
+}
+
+$directoresNivelList = [];
+foreach ($directoresNivel ?? [] as $dn) {
+    $directoresNivelList[] = [
+        'id' => (int)$dn->id,
+        'nombre' => $dn->nombre,
+        'email' => $dn->email,
+        'cargo_nivel' => $dn->cargo_nivel ?? '',
+        'sedes_ids' => $dn->getSedesIds(),
+    ];
+}
+
+$userSedesIds = $user ? $user->getSedesIds() : [];
+$isSingleSedeUser = ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isDireccionNivel()) && count($userSedesIds) <= 1);
+$defaultSedeVal = ($isSingleSedeUser || count($userSedesIds) === 1) ? ($user->sede_id ?? ($userSedesIds[0] ?? '')) : '';
+$initialSedeId = (string)old('sede_id', $defaultSedeVal);
 ?>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 <script src="<?= mesa_asset_url('js/qrious.min.js') ?>"></script>
@@ -45,12 +71,17 @@ function nuevoDocumentoForm() {
     return {
         filesCount: 0,
         fileNames: [],
-        sedeId: <?= json_encode((string)old('sede_id', $user->sede_id ?? '')) ?>,
+        sedeId: <?= json_encode($initialSedeId) ?>,
         tipoId: <?= json_encode((string)old('tipo_documento_id', '')) ?>,
         categoriaId: <?= json_encode((string)old('categoria_id', '')) ?>,
         responsableEmail: <?= json_encode((string)old('responsable_email', '')) ?>,
+        notificarDirectorSede: <?= json_encode((bool)old('notificar_director_sede', false)) ?>,
+        notificarDirectorNivel: <?= json_encode((bool)old('notificar_director_nivel', false)) ?>,
+        selectedDirectoresNivelIds: <?= json_encode(array_map('intval', (array)old('directores_nivel_ids', []))) ?>,
         tipos: <?= json_encode($tiposMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
         categorias: <?= json_encode($categoriasMap, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+        directoresSede: <?= json_encode($directoresSedeList, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
+        directoresNivel: <?= json_encode($directoresNivelList, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>,
         qrToken: "",
         qrUrl: "",
         qrStatus: "loading",
@@ -182,6 +213,12 @@ function nuevoDocumentoForm() {
                 .catch(() => {});
             }, 1000);
         },
+        onSedeChange() {
+            this.recalculateDerivation();
+            // Filtrar directores de nivel seleccionados para que pertenezcan a la nueva sede
+            const validIds = this.getCurrentDirectoresNivel().map(d => Number(d.id));
+            this.selectedDirectoresNivelIds = this.selectedDirectoresNivelIds.filter(id => validIds.includes(Number(id)));
+        },
         recalculateDerivation() {
             const t = this.tipos[this.tipoId];
             if (t && t.categoria_id) {
@@ -212,6 +249,24 @@ function nuevoDocumentoForm() {
                 }
             }
             return Object.values(byEmail);
+        },
+        getCurrentDirectoresSede() {
+            if (!this.sedeId) return [];
+            const sIdNum = Number(this.sedeId);
+            return this.directoresSede.filter(d => (d.sedes_ids || []).map(Number).includes(sIdNum));
+        },
+        getCurrentDirectoresNivel() {
+            if (!this.sedeId) return [];
+            const sIdNum = Number(this.sedeId);
+            return this.directoresNivel.filter(d => (d.sedes_ids || []).map(Number).includes(sIdNum));
+        },
+        toggleDirectorNivel(id) {
+            const numId = Number(id);
+            if (this.selectedDirectoresNivelIds.includes(numId)) {
+                this.selectedDirectoresNivelIds = this.selectedDirectoresNivelIds.filter(x => x !== numId);
+            } else {
+                this.selectedDirectoresNivelIds.push(numId);
+            }
         },
         getCurrentCategoriaNombre() {
             if (!this.categoriaId || !this.categorias[this.categoriaId]) return "";
@@ -354,18 +409,14 @@ function nuevoDocumentoForm() {
                     <label for="sede_id" class="form-label">
                         Sede de Recepción <span class="text-danger-500">*</span>
                     </label>
-                    <?php 
-                        $userSedesIds = $user ? $user->getSedesIds() : [];
-                        $isSingleSedeUser = ($user && ($user->isRecepcion() || $user->isDireccion()) && count($userSedesIds) <= 1);
-                    ?>
                     <?php if ($isSingleSedeUser): ?>
-                        <input type="hidden" name="sede_id" value="<?= $user->sede_id ?>">
+                        <input type="hidden" name="sede_id" value="<?= $initialSedeId ?>">
                         <input type="text" disabled class="form-input bg-ink-100 dark:bg-ink-800 font-bold text-ink-900 dark:text-white" value="<?= e($user->sede_nombre) ?>">
                     <?php else: ?>
-                        <select id="sede_id" name="sede_id" x-model="sedeId" @change="recalculateDerivation" required class="form-select font-medium">
+                        <select id="sede_id" name="sede_id" x-model="sedeId" @change="onSedeChange" required class="form-select font-medium">
                             <option value="">Seleccionar sede...</option>
                             <?php foreach ($sedes as $s): ?>
-                                <option value="<?= $s->id ?>" <?= old('sede_id', (count($userSedesIds) === 1 ? $user->sede_id : '')) == $s->id ? 'selected' : '' ?>>
+                                <option value="<?= $s->id ?>" <?= $initialSedeId === (string)$s->id ? 'selected' : '' ?>>
                                     <?= e($s->nombre) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -388,11 +439,11 @@ function nuevoDocumentoForm() {
                     </select>
                 </div>
 
-                <!-- Categoría & Responsables Asignados Automáticamente -->
+                <!-- Categoría & Responsables Asignados Automáticamente + Opciones Notificar Directores -->
                 <div class="sm:col-span-2">
                     <input type="hidden" name="categoria_id" :value="categoriaId">
                     
-                    <div class="p-4 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/70 dark:bg-ink-900/60 space-y-3">
+                    <div class="p-4 rounded-xl border border-ink-200 dark:border-ink-700 bg-ink-50/70 dark:bg-ink-900/60 space-y-4">
                         
                         <!-- Estado de la Categoría vinculada -->
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -416,9 +467,9 @@ function nuevoDocumentoForm() {
                             <!-- Caso 1: Un solo responsable asignado -->
                             <template x-if="getCurrentResponsables().length === 1">
                                 <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-success-50 text-success-800 dark:bg-success-950/40 dark:text-success-200 border border-success-200 dark:border-success-800 text-xs font-semibold">
-                                    <?= icon('check-circle', 'w-4 h-4 text-success-600') ?>
-                                    <span>Responsable asignado: <strong x-text="getCurrentResponsables()[0].usuario_nombre || getCurrentResponsables()[0].email"></strong></span>
-                                    <span class="text-[10px] opacity-75 font-normal" x-show="getCurrentResponsables()[0].sede_nombre" x-text="'(' + getCurrentResponsables()[0].sede_nombre + ')'"></span>
+                                    <?= icon('mail', 'w-4 h-4 text-success-600') ?>
+                                    <span>Responsable: <strong x-text="getCurrentResponsables()[0].email"></strong></span>
+                                    <span class="text-[10px] opacity-75 font-normal" x-show="getCurrentResponsables()[0].usuario_nombre" x-text="'(' + getCurrentResponsables()[0].usuario_nombre + ')'"></span>
                                     <input type="hidden" name="responsable_email" :value="getCurrentResponsables()[0].email">
                                 </div>
                             </template>
@@ -428,7 +479,7 @@ function nuevoDocumentoForm() {
                         <template x-if="getCurrentResponsables().length > 1">
                             <div class="pt-3 border-t border-ink-200 dark:border-ink-800">
                                 <label class="form-label text-xs font-bold text-ink-800 dark:text-ink-200 flex items-center justify-between">
-                                    <span>Responsable Destinatario</span>
+                                    <span>Responsable de Categoría Destinatario</span>
                                     <span class="text-[10px] text-brand-600 font-semibold" x-text="getCurrentResponsables().length + ' responsables disponibles'"></span>
                                 </label>
                                 <select name="responsable_email" x-model="responsableEmail" class="form-select text-xs font-medium">
@@ -447,6 +498,87 @@ function nuevoDocumentoForm() {
                                 <span>Esta categoría no posee responsables activos asignados. Se enviará una alerta automática al Administrador.</span>
                             </div>
                         </template>
+
+                        <!-- NOTIFICACIONES Y PERMISOS ADICIONALES POR SEDE (DIRECTOR DE SEDE Y DIRECTORES DE NIVEL) -->
+                        <div class="pt-3 border-t border-ink-200 dark:border-ink-800 space-y-3">
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-ink-500">
+                                Notificaciones y Permisos Adicionales en la Sede
+                            </div>
+
+                            <!-- Opción 1: Notificar a Director de Sede -->
+                            <div class="p-3 rounded-xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-700 space-y-2">
+                                <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-ink-900 dark:text-white">
+                                    <input type="checkbox" name="notificar_director_sede" value="1" x-model="notificarDirectorSede" class="rounded border-ink-300 text-brand-600 focus:ring-brand-500 w-4 h-4">
+                                    <span>Notificar a Director de Sede</span>
+                                </label>
+
+                                <template x-if="notificarDirectorSede">
+                                    <div class="pl-6 pt-1 space-y-1.5">
+                                        <template x-if="!sedeId">
+                                            <div class="text-xs text-warning-600 font-medium">Seleccioná primero la Sede de Recepción para cargar su Director de Sede.</div>
+                                        </template>
+                                        <template x-if="sedeId && getCurrentDirectoresSede().length === 0">
+                                            <div class="text-xs text-warning-600 font-medium">No hay Director de Sede registrado para la sede seleccionada.</div>
+                                        </template>
+                                        <template x-if="sedeId && getCurrentDirectoresSede().length > 0">
+                                            <div class="space-y-1">
+                                                <template x-for="ds in getCurrentDirectoresSede()" :key="'ds_' + ds.id">
+                                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-brand-50 dark:bg-brand-950/40 text-brand-800 dark:text-brand-200 border border-brand-200 dark:border-brand-800 text-xs font-semibold">
+                                                        <?= icon('user-check', 'w-3.5 h-3.5 text-brand-600') ?>
+                                                        <span x-text="ds.nombre"></span>
+                                                        <span class="text-ink-500 font-normal" x-text="'(' + ds.email + ')'"></span>
+                                                        <input type="hidden" name="directores_sede_ids[]" :value="ds.id">
+                                                    </div>
+                                                </template>
+                                                <div class="text-[11px] text-ink-500">
+                                                    Se le enviará notificación por correo y tendrá permiso para ver este documento.
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <!-- Opción 2: Notificar a Director de Nivel -->
+                            <div class="p-3 rounded-xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-700 space-y-2">
+                                <label class="flex items-center gap-2.5 cursor-pointer text-xs font-bold text-ink-900 dark:text-white">
+                                    <input type="checkbox" name="notificar_director_nivel" value="1" x-model="notificarDirectorNivel" class="rounded border-ink-300 text-brand-600 focus:ring-brand-500 w-4 h-4">
+                                    <span>Notificar a Director de Nivel</span>
+                                </label>
+
+                                <template x-if="notificarDirectorNivel">
+                                    <div class="pl-6 pt-1 space-y-2">
+                                        <template x-if="!sedeId">
+                                            <div class="text-xs text-warning-600 font-medium">Seleccioná primero la Sede de Recepción para listar sus Directores de Nivel.</div>
+                                        </template>
+                                        <template x-if="sedeId && getCurrentDirectoresNivel().length === 0">
+                                            <div class="text-xs text-warning-600 font-medium">No hay Directores de Nivel registrados para la sede seleccionada.</div>
+                                        </template>
+                                        <template x-if="sedeId && getCurrentDirectoresNivel().length > 0">
+                                            <div class="space-y-1.5">
+                                                <div class="text-[11px] text-ink-500 font-medium">
+                                                    Seleccioná uno o más Directores de Nivel de esta sede para notificar y dar permiso de visualización:
+                                                </div>
+                                                <div class="grid grid-cols-1 gap-1.5">
+                                                    <template x-for="dn in getCurrentDirectoresNivel()" :key="'dn_' + dn.id">
+                                                        <label class="flex items-center gap-2.5 p-2 rounded-lg border border-ink-200 dark:border-ink-700 hover:bg-brand-50/50 dark:hover:bg-ink-800/60 cursor-pointer text-xs transition-colors">
+                                                            <input type="checkbox" name="directores_nivel_ids[]" :value="dn.id"
+                                                                   :checked="selectedDirectoresNivelIds.includes(Number(dn.id))"
+                                                                   @change="toggleDirectorNivel(dn.id)"
+                                                                   class="rounded border-ink-300 text-brand-600 focus:ring-brand-500 w-4 h-4">
+                                                            <span x-show="dn.cargo_nivel" class="px-1.5 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-900/60 dark:text-brand-300 text-[10px] font-bold" x-text="dn.cargo_nivel"></span>
+                                                            <span class="font-bold text-ink-900 dark:text-white" x-text="dn.nombre"></span>
+                                                            <span class="text-ink-500" x-text="'(' + dn.email + ')'"></span>
+                                                        </label>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+
+                        </div>
 
                     </div>
                 </div>

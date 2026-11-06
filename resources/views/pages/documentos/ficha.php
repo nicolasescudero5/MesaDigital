@@ -172,6 +172,24 @@ $canManage = $user->isAdministrador() || $user->isResponsable() || ($documento->
                             <div class="text-ink-400">Sin plazo establecido</div>
                         <?php endif; ?>
                     </div>
+
+                    <?php if (!empty($accesosDirectores)): ?>
+                        <div class="sm:col-span-2 pt-2">
+                            <span class="form-label">Directores Notificados y Autorizados</span>
+                            <div class="flex flex-wrap gap-2 mt-1">
+                                <?php foreach ($accesosDirectores as $acc): ?>
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-50 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800 text-xs font-semibold text-brand-800 dark:text-brand-200">
+                                        <?= icon('user-check', 'w-3.5 h-3.5 text-brand-600') ?>
+                                        <span class="uppercase text-[10px] font-bold px-1.5 py-0.2 rounded bg-brand-100 text-brand-700 dark:bg-brand-900 dark:text-brand-300">
+                                            <?= $acc['tipo_acceso'] === 'director_nivel' ? e($acc['cargo_nivel'] ?: 'Director de Nivel') : 'Director de Sede' ?>
+                                        </span>
+                                        <span><?= e($acc['usuario_nombre']) ?></span>
+                                        <span class="text-ink-500 font-normal">(<?= e($acc['usuario_email']) ?>)</span>
+                                    </span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <div class="pt-4 border-t border-ink-100 dark:border-ink-800">

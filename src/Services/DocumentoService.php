@@ -15,6 +15,7 @@ use App\Repositories\DocumentoComentarioRepository;
 use App\Repositories\DocumentoHistorialRepository;
 use App\Repositories\DocumentoRepository;
 use App\Repositories\TipoDocumentoRepository;
+use App\Repositories\UsuarioRepository;
 use App\Validation\Validator;
 use InvalidArgumentException;
 use PDO;
@@ -22,6 +23,8 @@ use RuntimeException;
 
 class DocumentoService
 {
+    private UsuarioRepository $usuarioRepository;
+
     public function __construct(
         private PDO $pdo,
         private DocumentoRepository $documentoRepository,
@@ -31,8 +34,11 @@ class DocumentoService
         private CategoriaRepository $categoriaRepository,
         private TipoDocumentoRepository $tipoDocumentoRepository,
         private StorageInterface $storage,
-        private NotificacionService $notificacionService
-    ) {}
+        private NotificacionService $notificacionService,
+        ?UsuarioRepository $usuarioRepository = null
+    ) {
+        $this->usuarioRepository = $usuarioRepository ?? new UsuarioRepository($this->pdo);
+    }
 
     /**
      * Crea un nuevo documento en el sistema
@@ -69,7 +75,7 @@ class DocumentoService
         }
 
         // Si el usuario es Recepción o Dirección, validar que la sede esté entre sus sedes asignadas
-        if (($creador->isRecepcion() || $creador->isDireccion()) && !$creador->canAccessSede((int)$data['sede_id'])) {
+        if (($creador->isRecepcion() || $creador->isDireccion() || $creador->isDireccionNivel()) && !$creador->canAccessSede((int)$data['sede_id'])) {
             throw new InvalidArgumentException("No tenés permiso para crear documentos en otra sede.");
         }
 
@@ -91,16 +97,20 @@ class DocumentoService
             throw new InvalidArgumentException("Debe adjuntar al menos una foto o archivo del documento.");
         }
 
+        $emailsAdicionales = [];
+        $directoresNotificadosLabels = [];
+
         // 4. Iniciar transacción
         $this->pdo->beginTransaction();
         try {
             $codigo = $this->documentoRepository->generateNextCodigo();
 
             $remitenteVal = !empty($data['remitente']) ? trim((string)$data['remitente']) : null;
+            $sedeIdInt = (int)$data['sede_id'];
 
             $doc = new Documento(
                 codigo: $codigo,
-                sede_id: (int)$data['sede_id'],
+                sede_id: $sedeIdInt,
                 categoria_id: $categoriaId,
                 tipo_documento_id: (int)$data['tipo_documento_id'],
                 caracter_remitente_id: !empty($data['caracter_remitente_id']) ? (int)$data['caracter_remitente_id'] : null,
@@ -138,6 +148,46 @@ class DocumentoService
                 $isFirst = false;
             }
 
+            // 4.1 Permisos y notificaciones para Director de Sede (si se marcó el checkbox)
+            if (!empty($data['notificar_director_sede'])) {
+                $directoresSede = $this->usuarioRepository->findDirectoresSedeActivos($sedeIdInt);
+                if (!empty($data['directores_sede_ids']) && is_array($data['directores_sede_ids'])) {
+                    $allowedIds = array_map('intval', $data['directores_sede_ids']);
+                    $directoresSede = array_values(array_filter($directoresSede, fn(Usuario $u) => in_array((int)$u->id, $allowedIds, true)));
+                }
+                foreach ($directoresSede as $dirSede) {
+                    $this->documentoRepository->grantAcceso($documentoId, (int)$dirSede->id, 'director_sede', (int)$creador->id);
+                    if (!empty($dirSede->email)) {
+                        $emailsAdicionales[] = $dirSede->email;
+                    }
+                    $directoresNotificadosLabels[] = "Director de Sede: {$dirSede->nombre} ({$dirSede->email})";
+                }
+            }
+
+            // 4.2 Permisos y notificaciones para Directores de Nivel de la Sede (si se marcó y seleccionaron uno o más)
+            $selectedNivelIds = [];
+            if (!empty($data['directores_nivel_ids']) && is_array($data['directores_nivel_ids'])) {
+                $selectedNivelIds = array_values(array_unique(array_filter(array_map('intval', $data['directores_nivel_ids']))));
+            }
+            if ((!empty($data['notificar_director_nivel']) || !empty($selectedNivelIds)) && !empty($selectedNivelIds)) {
+                $directoresNivelSede = $this->usuarioRepository->findDirectoresNivelActivos($sedeIdInt);
+                foreach ($directoresNivelSede as $dirNivel) {
+                    if (in_array((int)$dirNivel->id, $selectedNivelIds, true)) {
+                        $this->documentoRepository->grantAcceso($documentoId, (int)$dirNivel->id, 'director_nivel', (int)$creador->id);
+                        if (!empty($dirNivel->email)) {
+                            $emailsAdicionales[] = $dirNivel->email;
+                        }
+                        $nivelTxt = $dirNivel->cargo_nivel ? " [{$dirNivel->cargo_nivel}]" : '';
+                        $directoresNotificadosLabels[] = "Director de Nivel{$nivelTxt}: {$dirNivel->nombre} ({$dirNivel->email})";
+                    }
+                }
+            }
+
+            $detalleHistorial = sprintf("Documento registrado en Mesa Digital con %d adjunto(s).", count($filesToProcess));
+            if (!empty($directoresNotificadosLabels)) {
+                $detalleHistorial .= " Permiso y notificación otorgados a: " . implode('; ', $directoresNotificadosLabels) . ".";
+            }
+
             // Registrar en historial de auditoría (§ 5.2)
             $this->historialRepository->create(new DocumentoHistorial(
                 documento_id: $documentoId,
@@ -145,7 +195,7 @@ class DocumentoService
                 estado_anterior: null,
                 estado_nuevo: 'Recibido',
                 usuario_id: (int)$creador->id,
-                detalle: sprintf("Documento registrado en Mesa Digital con %d adjunto(s).", count($filesToProcess))
+                detalle: $detalleHistorial
             ));
 
             $this->pdo->commit();
@@ -154,9 +204,9 @@ class DocumentoService
             throw $e;
         }
 
-        // 5. Notificar asíncronamente a los responsables activos (§ 8.1)
+        // 5. Notificar asíncronamente a los responsables activos y directores seleccionados (§ 8.1)
         $destinatarioEmail = !empty($data['responsable_email']) ? trim((string)$data['responsable_email']) : null;
-        $this->notificacionService->notificarCarga($doc, $destinatarioEmail);
+        $this->notificacionService->notificarCarga($doc, $destinatarioEmail, $emailsAdicionales);
 
         return $this->documentoRepository->findById($doc->id);
     }
@@ -312,12 +362,6 @@ class DocumentoService
         $this->documentoRepository->updateRemitente($documentoId, $remitenteLimpio, $caracterRemitenteId, (int)$usuario->id);
 
         $detalle = "Remitente actualizado a: " . ($remitenteLimpio ?: 'Sin remitente');
-        if ($caracterRemitenteId) {
-            $caracter = $this->caracterRemitenteRepository->findById($caracterRemitenteId);
-            if ($caracter) {
-                $detalle .= " (Carácter: {$caracter->nombre})";
-            }
-        }
 
         $this->historialRepository->create(new DocumentoHistorial(
             documento_id: $documentoId,
@@ -566,7 +610,6 @@ class DocumentoService
     {
         $normalized = [];
 
-        // Si es un archivo directo: ['name' => ..., 'type' => ..., 'tmp_name' => ..., 'error' => ..., 'size' => ...]
         if (isset($files['name']) && is_string($files['name'])) {
             if ($files['error'] !== UPLOAD_ERR_NO_FILE && !empty($files['tmp_name'])) {
                 $normalized[] = $files;
@@ -574,7 +617,6 @@ class DocumentoService
             return $normalized;
         }
 
-        // Si es un array de archivos: ['name' => [...], 'tmp_name' => [...], ...]
         if (isset($files['name']) && is_array($files['name'])) {
             foreach ($files['name'] as $idx => $name) {
                 if ($files['error'][$idx] !== UPLOAD_ERR_NO_FILE && !empty($files['tmp_name'][$idx])) {
@@ -590,7 +632,6 @@ class DocumentoService
             return $normalized;
         }
 
-        // Si ya es un array de items normalizados: [ ['name' => ...], ['name' => ...] ]
         foreach ($files as $file) {
             if (is_array($file) && isset($file['tmp_name']) && !empty($file['tmp_name']) && ($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_NO_FILE) {
                 $normalized[] = $file;

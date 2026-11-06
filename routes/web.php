@@ -74,6 +74,8 @@ $router->post('/categorias/{id:\d+}/actualizar', [CategoriaController::class, 'u
 $router->post('/categorias/{id:\d+}/desactivar', [CategoriaController::class, 'deactivate'], [AuthMiddleware::class], ['administrador']);
 $router->post('/categorias/{id:\d+}/responsables', [CategoriaController::class, 'addResponsable'], [AuthMiddleware::class], ['administrador']);
 $router->post('/categorias/{id:\d+}/responsables/eliminar', [CategoriaController::class, 'removeResponsable'], [AuthMiddleware::class], ['administrador']);
+$router->post('/categorias/directores/asignar', [CategoriaController::class, 'assignDirector'], [AuthMiddleware::class], ['administrador']);
+$router->post('/categorias/directores/quitar', [CategoriaController::class, 'removeDirectorSede'], [AuthMiddleware::class], ['administrador']);
 
 // Administración — Tipos de Documento (Solo Administrador)
 $router->get('/tipos-documento', [TipoDocumentoController::class, 'index'], [AuthMiddleware::class], ['administrador']);

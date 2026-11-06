@@ -9,7 +9,78 @@ use PDO;
 
 class UsuarioRepository
 {
-    public function __construct(private PDO $pdo) {}
+    private bool $schemaChecked = false;
+
+    public function __construct(private PDO $pdo)
+    {
+        $this->ensureDirectoresSchema();
+    }
+
+    private function ensureDirectoresSchema(): void
+    {
+        if ($this->schemaChecked) {
+            return;
+        }
+        $this->schemaChecked = true;
+
+        try {
+            $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+            if ($driver === 'mysql') {
+                // Asegurar columna cargo_nivel y rol direccion_nivel en usuarios
+                $colStmt = $this->pdo->query("SHOW COLUMNS FROM usuarios LIKE 'cargo_nivel'");
+                if (!$colStmt || !$colStmt->fetch()) {
+                    try {
+                        $this->pdo->exec("ALTER TABLE `usuarios` MODIFY COLUMN `rol` ENUM('administrador','recepcion_sede','responsable_categoria','direccion_sede','direccion_nivel','supervision_general') COLLATE utf8mb4_unicode_ci DEFAULT NULL");
+                    } catch (\Throwable) {
+                    }
+                    try {
+                        $this->pdo->exec("ALTER TABLE `usuarios` ADD COLUMN `cargo_nivel` VARCHAR(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL AFTER `rol`");
+                    } catch (\Throwable) {
+                    }
+                }
+
+                // Asegurar tabla documento_accesos
+                $this->pdo->exec("
+                    CREATE TABLE IF NOT EXISTS `documento_accesos` (
+                        `id` int unsigned NOT NULL AUTO_INCREMENT,
+                        `documento_id` int unsigned NOT NULL,
+                        `usuario_id` int unsigned NOT NULL,
+                        `tipo_acceso` enum('director_sede','director_nivel') COLLATE utf8mb4_unicode_ci NOT NULL,
+                        `creado_el` datetime DEFAULT CURRENT_TIMESTAMP,
+                        `creado_por` int unsigned DEFAULT NULL,
+                        PRIMARY KEY (`id`),
+                        UNIQUE KEY `uq_documento_acceso_usuario` (`documento_id`, `usuario_id`),
+                        KEY `idx_documento_accesos_usuario` (`usuario_id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+            } elseif ($driver === 'sqlite') {
+                $cols = $this->pdo->query("PRAGMA table_info(usuarios)")->fetchAll();
+                $hasCargoNivel = false;
+                foreach ($cols as $col) {
+                    if (($col['name'] ?? '') === 'cargo_nivel') {
+                        $hasCargoNivel = true;
+                        break;
+                    }
+                }
+                if (!$hasCargoNivel) {
+                    $this->pdo->exec("ALTER TABLE usuarios ADD COLUMN cargo_nivel TEXT NULL");
+                }
+                $this->pdo->exec("
+                    CREATE TABLE IF NOT EXISTS documento_accesos (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        documento_id INTEGER NOT NULL,
+                        usuario_id INTEGER NOT NULL,
+                        tipo_acceso TEXT NOT NULL,
+                        creado_el TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        creado_por INTEGER NULL,
+                        UNIQUE (documento_id, usuario_id)
+                    )
+                ");
+            }
+        } catch (\Throwable) {
+            // Continuar normalmente si ya existe o no tiene permisos DDL
+        }
+    }
 
     public function findById(int $id): ?Usuario
     {
@@ -71,6 +142,9 @@ class UsuarioRepository
         return $user;
     }
 
+    /**
+     * @return Usuario[]
+     */
     public function findAll(bool $onlyActive = true): array
     {
         $sql = "SELECT u.*, s.nombre AS sede_nombre 
@@ -89,8 +163,55 @@ class UsuarioRepository
         }
 
         $users = array_map(fn($row) => Usuario::fromArray($row), $rows);
+        $this->hydrateMultipleUsersSedes($users);
 
-        // Cargar todas las asignaciones de usuario_sedes en una única consulta
+        return $users;
+    }
+
+    /**
+     * @return Usuario[]
+     */
+    public function findByRol(string $rol, bool $onlyActive = true): array
+    {
+        $all = $this->findAll($onlyActive);
+        return array_values(array_filter($all, fn(Usuario $u) => $u->rol === $rol));
+    }
+
+    /**
+     * @return Usuario[]
+     */
+    public function findDirectoresSedeActivos(?int $sedeId = null): array
+    {
+        $directores = $this->findByRol('direccion_sede', true);
+        if ($sedeId !== null && $sedeId > 0) {
+            $directores = array_values(array_filter(
+                $directores,
+                fn(Usuario $u) => in_array($sedeId, $u->getSedesIds(), true)
+            ));
+        }
+        return $directores;
+    }
+
+    /**
+     * @return Usuario[]
+     */
+    public function findDirectoresNivelActivos(?int $sedeId = null): array
+    {
+        $directores = $this->findByRol('direccion_nivel', true);
+        if ($sedeId !== null && $sedeId > 0) {
+            $directores = array_values(array_filter(
+                $directores,
+                fn(Usuario $u) => in_array($sedeId, $u->getSedesIds(), true)
+            ));
+        }
+        return $directores;
+    }
+
+    /**
+     * @param Usuario[] $users
+     */
+    private function hydrateMultipleUsersSedes(array $users): void
+    {
         try {
             $pivotStmt = $this->pdo->query("
                 SELECT us.usuario_id, us.sede_id, s.nombre AS sede_nombre 
@@ -127,8 +248,6 @@ class UsuarioRepository
         } catch (\Throwable) {
             // Si la tabla aún no estuviera accesible, conserva los datos base
         }
-
-        return $users;
     }
 
     public function create(Usuario $user, array $sedesIds = []): int
@@ -141,14 +260,15 @@ class UsuarioRepository
             $user->sede_id = $user->sedes_ids[0];
         }
 
-        $sql = "INSERT INTO usuarios (nombre, email, rol, sede_id, password_hash, google_sub, activo, creado_por)
-                VALUES (:nombre, :email, :rol, :sede_id, :password_hash, :google_sub, :activo, :creado_por)";
+        $sql = "INSERT INTO usuarios (nombre, email, rol, cargo_nivel, sede_id, password_hash, google_sub, activo, creado_por)
+                VALUES (:nombre, :email, :rol, :cargo_nivel, :sede_id, :password_hash, :google_sub, :activo, :creado_por)";
 
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([
             'nombre' => $user->nombre,
             'email' => $user->email,
             'rol' => $user->rol,
+            'cargo_nivel' => $user->cargo_nivel,
             'sede_id' => $user->sede_id,
             'password_hash' => $user->password_hash,
             'google_sub' => $user->google_sub,
@@ -174,7 +294,7 @@ class UsuarioRepository
         }
 
         $sql = "UPDATE usuarios 
-                SET nombre = :nombre, email = :email, rol = :rol, sede_id = :sede_id, 
+                SET nombre = :nombre, email = :email, rol = :rol, cargo_nivel = :cargo_nivel, sede_id = :sede_id, 
                     activo = :activo, modificado_por = :modificado_por, modificado_el = :modificado_el 
                 WHERE id = :id";
 
@@ -184,6 +304,7 @@ class UsuarioRepository
             'nombre' => $user->nombre,
             'email' => $user->email,
             'rol' => $user->rol,
+            'cargo_nivel' => $user->cargo_nivel,
             'sede_id' => $user->sede_id,
             'activo' => $user->activo ? 1 : 0,
             'modificado_por' => $user->modificado_por,

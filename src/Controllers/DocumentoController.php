@@ -13,6 +13,7 @@ use App\Repositories\DocumentoHistorialRepository;
 use App\Repositories\DocumentoRepository;
 use App\Repositories\SedeRepository;
 use App\Repositories\TipoDocumentoRepository;
+use App\Repositories\UsuarioRepository;
 use App\Services\DocumentoService;
 use App\Services\NotificacionService;
 use App\Services\StorageInterface;
@@ -33,7 +34,8 @@ class DocumentoController
         private DocumentoService $documentoService,
         private StorageInterface $storage,
         private View $view,
-        private ?NotificacionService $notificacionService = null
+        private NotificacionService $notificacionService,
+        private UsuarioRepository $usuarioRepository
     ) {}
 
     public function index(): void
@@ -61,7 +63,7 @@ class DocumentoController
         $totalPages = max(1, (int)ceil($result['total'] / $limit));
 
         $sedes = $this->sedeRepository->findAll(true);
-        if ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isResponsable())) {
+        if ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isDireccionNivel() || $user->isResponsable())) {
             $sedes = array_values(array_filter($sedes, fn($s) => $user->canAccessSede((int)$s->id)));
         }
         $categorias = $this->categoriaRepository->findAll(true, false);
@@ -86,12 +88,14 @@ class DocumentoController
         $user = $this->authProvider->currentUser();
 
         $sedes = $this->sedeRepository->findAll(true);
-        if ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isResponsable())) {
+        if ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isDireccionNivel() || $user->isResponsable())) {
             $sedes = array_values(array_filter($sedes, fn($s) => $user->canAccessSede((int)$s->id)));
         }
         $categorias = $this->categoriaRepository->findAll(true, true);
         $tipos = $this->tipoDocumentoRepository->findAll(true);
         $caracteres = $this->caracterRemitenteRepository->findAll(true);
+        $directoresSede = $this->usuarioRepository ? $this->usuarioRepository->findDirectoresSedeActivos() : [];
+        $directoresNivel = $this->usuarioRepository ? $this->usuarioRepository->findDirectoresNivelActivos() : [];
 
         echo $this->view->render('documentos/nuevo', [
             'user' => $user,
@@ -99,6 +103,8 @@ class DocumentoController
             'categorias' => $categorias,
             'tipos' => $tipos,
             'caracteres' => $caracteres,
+            'directoresSede' => $directoresSede,
+            'directoresNivel' => $directoresNivel,
         ], 'app');
     }
 
@@ -130,7 +136,7 @@ class DocumentoController
             $documento = $this->documentoService->crear($_POST, $files, $user);
             $this->notificacionService?->procesarCola(50, (int)$documento->id);
 
-            flash('success', "Documento {$documento->codigo} registrado exitosamente. Se notificó a los responsables asignados.");
+            flash('success', "Documento {$documento->codigo} registrado exitosamente. Se enviaron las notificaciones seleccionadas.");
             redirect("/documentos/{$documento->id}");
         } catch (\Throwable $e) {
             $_SESSION['_old_input'] = $_POST;
@@ -163,6 +169,7 @@ class DocumentoController
         $comentarios = $this->comentarioRepository->findByDocumentoId($id);
         $categorias = $this->categoriaRepository->findAll(true, false);
         $caracteres = $this->caracterRemitenteRepository->findAll(true);
+        $accesosDirectores = $this->documentoRepository->getAccesosByDocumentoId($id);
 
         echo $this->view->render('documentos/ficha', [
             'user' => $user,
@@ -172,6 +179,7 @@ class DocumentoController
             'comentarios' => $comentarios,
             'categorias' => $categorias,
             'caracteres' => $caracteres,
+            'accesosDirectores' => $accesosDirectores,
         ], 'app');
     }
 

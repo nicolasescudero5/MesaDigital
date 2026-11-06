@@ -22,7 +22,8 @@ class Usuario
         public ?int $modificado_por = null,
         public ?string $sede_nombre = null,
         public array $sedes_ids = [],
-        public array $sedes_nombres = []
+        public array $sedes_nombres = [],
+        public ?string $cargo_nivel = null
     ) {
         if (empty($this->sedes_ids) && $this->sede_id !== null) {
             $this->sedes_ids = [(int)$this->sede_id];
@@ -67,7 +68,8 @@ class Usuario
             modificado_por: isset($data['modificado_por']) && $data['modificado_por'] !== null ? (int)$data['modificado_por'] : null,
             sede_nombre: $data['sede_nombre'] ?? null,
             sedes_ids: $sedesIds,
-            sedes_nombres: $sedesNombres
+            sedes_nombres: $sedesNombres,
+            cargo_nivel: isset($data['cargo_nivel']) && $data['cargo_nivel'] !== '' ? (string)$data['cargo_nivel'] : null
         );
 
         return $user;
@@ -80,6 +82,7 @@ class Usuario
             'nombre' => $this->nombre,
             'email' => $this->email,
             'rol' => $this->rol,
+            'cargo_nivel' => $this->cargo_nivel,
             'sede_id' => $this->sede_id,
             'sedes_ids' => $this->getSedesIds(),
             'sedes_nombres' => $this->sedes_nombres,
@@ -142,6 +145,11 @@ class Usuario
     public function isDireccion(): bool
     {
         return $this->rol === 'direccion_sede';
+    }
+
+    public function isDireccionNivel(): bool
+    {
+        return $this->rol === 'direccion_nivel';
     }
 
     public function isSupervision(): bool
