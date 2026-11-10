@@ -5,7 +5,7 @@
     </div>
     <h1 class="text-2xl font-bold text-ink-900 dark:text-white font-display mb-2">403 — Acceso Denegado</h1>
     <p class="text-sm text-ink-500 mb-6"><?= e($message ?? 'No tenés los permisos o el alcance de sede necesario para acceder a este recurso.') ?></p>
-    <a href="/dashboard" class="btn-neutral inline-flex items-center gap-1.5 font-semibold">
+    <a href="<?= app_url('/dashboard') ?>" class="btn-neutral inline-flex items-center gap-1.5 font-semibold">
         <?= icon('arrow-left', 'w-4 h-4') ?>
         <span>Volver al Dashboard</span>
     </a>

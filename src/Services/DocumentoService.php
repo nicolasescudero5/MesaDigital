@@ -74,6 +74,10 @@ class DocumentoService
             throw new InvalidArgumentException($validator->firstError() ?? 'Datos de documento inválidos.');
         }
 
+        if (!$creador->isAdministrador() && !$creador->isRecepcion()) {
+            throw new InvalidArgumentException("Tu rol no tiene permisos para registrar nuevos documentos.");
+        }
+
         // Si el usuario es Recepción o Dirección, validar que la sede esté entre sus sedes asignadas
         if (($creador->isRecepcion() || $creador->isDireccion() || $creador->isDireccionNivel()) && !$creador->canAccessSede((int)$data['sede_id'])) {
             throw new InvalidArgumentException("No tenés permiso para crear documentos en otra sede.");

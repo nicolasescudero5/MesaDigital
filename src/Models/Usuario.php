@@ -124,7 +124,13 @@ class Usuario
         if (!empty($this->sedes_nombres)) {
             return implode(', ', $this->sedes_nombres);
         }
-        return $this->sede_nombre ?? 'Todas las sedes';
+        if ($this->sede_nombre) {
+            return $this->sede_nombre;
+        }
+        if ($this->isRecepcion() || $this->isDireccion() || $this->isDireccionNivel()) {
+            return 'Sin sede asignada';
+        }
+        return 'Todas las sedes';
     }
 
     public function isAdministrador(): bool

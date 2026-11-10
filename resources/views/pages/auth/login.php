@@ -9,6 +9,24 @@
         <p class="text-xs text-ink-500 mt-1">Suite Red Itínere — Registro y Trazabilidad</p>
     </div>
 
+    <?php if (!empty($portalUnauthorizedEmail)): ?>
+        <div class="mb-6 p-4 rounded-xl border border-danger-200 dark:border-danger-800 bg-danger-50/70 dark:bg-danger-950/30 text-left space-y-3">
+            <div class="flex items-start gap-2.5">
+                <?= icon('shield-alert', 'w-5 h-5 text-danger-600 dark:text-danger-400 shrink-0 mt-0.5') ?>
+                <div class="text-xs text-danger-900 dark:text-danger-200 leading-relaxed">
+                    <div class="font-bold text-sm mb-1">Acceso no habilitado en Mesa Digital</div>
+                    La cuenta <span class="font-mono font-semibold"><?= e($portalUnauthorizedEmail) ?></span> no se encuentra registrada o activa en esta aplicación. Solicitá el alta al Administrador.
+                </div>
+            </div>
+            <div>
+                <a href="<?= portal_url() ?>" class="w-full btn-neutral h-9 text-xs font-semibold inline-flex items-center justify-center gap-1.5">
+                    <?= icon('arrow-left', 'w-3.5 h-3.5') ?>
+                    <span>Volver al Portal</span>
+                </a>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <?php if ($driver === 'google' && !empty($loginUrlGoogle)): ?>
         <!-- Flujo Google OAuth 2.0 (§ 6.1) -->
         <div class="mb-6">

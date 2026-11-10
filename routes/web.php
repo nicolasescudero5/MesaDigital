@@ -42,8 +42,8 @@ $router->get('/dashboard', [DashboardController::class, 'index'], [AuthMiddlewar
 
 // Documentos
 $router->get('/documentos', [DocumentoController::class, 'index'], [AuthMiddleware::class]);
-$router->get('/documentos/nuevo', [DocumentoController::class, 'create'], [AuthMiddleware::class]);
-$router->post('/documentos', [DocumentoController::class, 'store'], [AuthMiddleware::class]);
+$router->get('/documentos/nuevo', [DocumentoController::class, 'create'], [AuthMiddleware::class], ['recepcion_sede', 'administrador']);
+$router->post('/documentos', [DocumentoController::class, 'store'], [AuthMiddleware::class], ['recepcion_sede', 'administrador']);
 $router->get('/documentos/{id:\d+}', [DocumentoController::class, 'show'], [AuthMiddleware::class]);
 $router->post('/documentos/{id:\d+}/tomar', [DocumentoController::class, 'tomar'], [AuthMiddleware::class]);
 $router->post('/documentos/{id:\d+}/reclasificar', [DocumentoController::class, 'reclasificar'], [AuthMiddleware::class]);

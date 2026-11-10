@@ -58,7 +58,7 @@ foreach ($directoresNivel ?? [] as $dn) {
 }
 
 $userSedesIds = $user ? $user->getSedesIds() : [];
-$isSingleSedeUser = ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isDireccionNivel()) && count($userSedesIds) <= 1);
+$isSingleSedeUser = ($user && ($user->isRecepcion() || $user->isDireccion() || $user->isDireccionNivel()) && count($userSedesIds) === 1);
 $defaultSedeVal = ($isSingleSedeUser || count($userSedesIds) === 1) ? ($user->sede_id ?? ($userSedesIds[0] ?? '')) : '';
 $initialSedeId = (string)old('sede_id', $defaultSedeVal);
 ?>

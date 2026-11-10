@@ -53,9 +53,9 @@ class UsuarioController
             redirect($redirectTo);
         }
 
-        // Si el rol es recepcion_sede, es obligatorio asignar al menos una sede
-        if ($rol === 'recepcion_sede' && empty($sedesIds)) {
-            flash('error', 'Para Recepción de Sede es obligatorio asignar al menos una sede.');
+        // Para roles acotados por sede, es obligatorio asignar al menos una sede
+        if (in_array($rol, ['recepcion_sede', 'direccion_sede', 'direccion_nivel'], true) && empty($sedesIds)) {
+            flash('error', 'Para este rol es obligatorio asignar al menos una sede.');
             redirect($redirectTo);
         }
 
@@ -112,8 +112,8 @@ class UsuarioController
             redirect($redirectTo);
         }
 
-        if ($rol === 'recepcion_sede' && empty($sedesIds)) {
-            flash('error', 'Para Recepción de Sede es obligatorio asignar al menos una sede.');
+        if (in_array($rol, ['recepcion_sede', 'direccion_sede', 'direccion_nivel'], true) && empty($sedesIds)) {
+            flash('error', 'Para este rol es obligatorio asignar al menos una sede.');
             redirect($redirectTo);
         }
 

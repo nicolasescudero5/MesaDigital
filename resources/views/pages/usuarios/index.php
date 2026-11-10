@@ -111,6 +111,10 @@ foreach ($usuarios as $u) {
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-brand-50 text-brand-700 border border-brand-200 dark:bg-brand-950/50 dark:text-brand-300 dark:border-brand-800">
                                         <?= e($u->sede_nombre) ?>
                                     </span>
+                                <?php elseif ($u->isRecepcion() || $u->isDireccion() || $u->isDireccionNivel()): ?>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-warning-50 text-warning-700 border border-warning-200 dark:bg-warning-950/50 dark:text-warning-300 dark:border-warning-800">
+                                        Sin sede asignada
+                                    </span>
                                 <?php else: ?>
                                     <span class="text-ink-400 italic">Todas las sedes</span>
                                 <?php endif; ?>

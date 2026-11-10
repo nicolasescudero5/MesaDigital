@@ -40,8 +40,8 @@ function is_active(string $path, string $currentPath): bool {
     <!-- Navegación con scroll -->
     <div class="flex-1 overflow-y-auto px-4 py-6 space-y-6">
         
-        <!-- Botón de Acción Principal Único -->
-        <?php if ($user): ?>
+        <!-- Botón de Acción Principal Único (Solo Recepción y Administrador § 4.1) -->
+        <?php if ($user && ($user->isRecepcion() || $user->isAdministrador())): ?>
             <div>
                 <a href="<?= app_url('documentos/nuevo') ?>" class="w-full btn-primary flex items-center justify-center gap-2 shadow-sm font-semibold text-white">
                     <?= icon('plus-circle', 'w-4 h-4 text-white') ?>
@@ -109,8 +109,20 @@ function is_active(string $path, string $currentPath): bool {
                 <div class="min-w-0 flex-1">
                     <div class="text-xs font-bold text-ink-900 dark:text-white truncate"><?= e($user->nombre) ?></div>
                     <div class="text-[11px] text-ink-500 truncate capitalize"><?= str_replace('_', ' ', $user->rol) ?></div>
-                    <?php if ($user->sede_nombre): ?>
-                        <div class="text-[10px] text-brand-600 dark:text-brand-400 font-medium truncate"><?= e($user->sede_nombre) ?></div>
+                    <?php
+                    $sidebarSedesLabel = null;
+                    if (!empty($user->sedes_nombres)) {
+                        $sidebarSedesLabel = count($user->sedes_nombres) === 1
+                            ? $user->sedes_nombres[0]
+                            : count($user->sedes_nombres) . ' sedes asignadas';
+                    } elseif ($user->sede_nombre) {
+                        $sidebarSedesLabel = $user->sede_nombre;
+                    }
+                    ?>
+                    <?php if ($sidebarSedesLabel): ?>
+                        <div class="text-[10px] text-brand-600 dark:text-brand-400 font-medium truncate" title="<?= e(implode(', ', $user->sedes_nombres ?: [$user->sede_nombre])) ?>">
+                            <?= e($sidebarSedesLabel) ?>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>

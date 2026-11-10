@@ -24,6 +24,13 @@ class AuthController
             redirect('/dashboard');
         }
 
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        $portalEmail = $_SESSION['portal_user_email'] ?? ($_SESSION['global_admin_email'] ?? ($_SESSION['user_email'] ?? null));
+        $portalUnauthorizedEmail = !empty($portalEmail) ? trim((string)$portalEmail) : null;
+
         $appConfig = require __DIR__ . '/../../config/app.php';
         $authConfig = require __DIR__ . '/../../config/auth.php';
 
@@ -37,6 +44,7 @@ class AuthController
             'usuariosSembrados' => $usuariosSembrados,
             'loginUrlGoogle' => $loginUrlGoogle,
             'driver' => $authConfig['driver'] ?? 'simulado',
+            'portalUnauthorizedEmail' => $portalUnauthorizedEmail,
         ], 'auth');
     }
 

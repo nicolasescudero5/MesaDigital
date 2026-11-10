@@ -68,9 +68,20 @@ class PortalAuthProvider implements AuthProviderInterface
         $portalEmail = $_SESSION['portal_user_email'] ?? ($_SESSION['global_admin_email'] ?? ($_SESSION['user_email'] ?? null));
         
         if (!empty($portalEmail)) {
-            $usuario = $this->usuarioRepository->findByEmail(trim($portalEmail));
+            $emailClean = trim((string)$portalEmail);
+            $usuario = $this->usuarioRepository->findByEmail($emailClean);
             
-            if ($usuario && $usuario->activo) {
+            if ($usuario) {
+                // Respetar siempre la baja lógica: un usuario inactivo NUNCA puede ingresar
+                if (!$usuario->activo) {
+                    unset($_SESSION['user_id'], $_SESSION['user_rol'], $_SESSION['user_sede_id']);
+                    return null;
+                }
+
+                if (($_SESSION['user_id'] ?? null) !== $usuario->id) {
+                    $this->usuarioRepository->updateUltimoLogin((int)$usuario->id);
+                }
+
                 $_SESSION['user_id'] = $usuario->id;
                 $_SESSION['user_rol'] = $usuario->rol;
                 $_SESSION['user_sede_id'] = $usuario->sede_id;
@@ -78,36 +89,10 @@ class PortalAuthProvider implements AuthProviderInterface
                 return $usuario;
             }
 
-            // If user logged in via Portal/Global Admin does not exist in Mesa DB, auto-provision
-            $portalName = $_SESSION['portal_user_name'] ?? ($_SESSION['global_admin_name'] ?? 'Usuario Portal');
-            $isAdmin = isset($_SESSION['global_admin_id']) 
-                    || ($_SESSION['portal_user_type'] ?? '') === 'client_admin' 
-                    || ($_SESSION['user_role'] ?? '') === 'admin';
-
-            $rol = $isAdmin ? 'administrador' : 'recepcion_sede';
-
-            $newUsuario = new Usuario(
-                nombre: $portalName,
-                email: trim($portalEmail),
-                rol: $rol,
-                activo: true
-            );
-
-            try {
-                $newId = $this->usuarioRepository->create($newUsuario);
-                $newUsuario->id = $newId;
-                $_SESSION['user_id'] = $newId;
-                $_SESSION['user_rol'] = $rol;
-                $this->cachedUser = $newUsuario;
-                return $newUsuario;
-            } catch (\Throwable $e) {
-                // If creation fails (e.g. duplicate key or DB lock), fallback to find
-                $existing = $this->usuarioRepository->findByEmail(trim($portalEmail));
-                if ($existing) {
-                    $this->cachedUser = $existing;
-                    return $existing;
-                }
-            }
+            // REGLA ESTRICTA: NUNCA se crean usuarios automáticamente bajo ninguna circunstancia.
+            // La única vía de alta de usuarios es manualmente por un Administrador dentro de Mesa Digital (/usuarios).
+            unset($_SESSION['user_id'], $_SESSION['user_rol'], $_SESSION['user_sede_id']);
+            return null;
         }
 
         // 2. Local/Simulated Session Fallback
